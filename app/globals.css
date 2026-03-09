@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #1E6FFF;
+  --secondary: #00C9A7;
+  --dark: #0D1B2A;
+  --gray: #6B7280;
+  --bg-light: #F0F4FF;
+  --white: #FFFFFF;
+  --background: #ffffff;
+  --foreground: #0D1B2A;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-dark: var(--dark);
+  --color-gray: var(--gray);
+  --color-bg-light: var(--bg-light);
+  --font-sans: 'M PLUS Rounded 1c', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'M PLUS Rounded 1c', ui-sans-serif, system-ui, sans-serif;
+}
