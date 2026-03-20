@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Dromi - Rastreo de buses en tiempo real",
-  description: "Rastrea la ubicación exacta de tu bus intermunicipal en tiempo real. Sin más esperas innecesarias, planifica tu viaje con confianza.",
+  description:
+    "Rastrea la ubicación exacta de tu bus intermunicipal en tiempo real. Sin más esperas innecesarias, planifica tu viaje con confianza.",
 };
 
 export default function RootLayout({
