@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth-options";
+import { getEncuestaServerSession } from "@/lib/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +8,15 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const result = await getEncuestaServerSession();
+
+  if (!result.ok) {
+    redirect("/login?error=config");
+  }
+
+  if (!result.session?.user?.id) {
     redirect("/login?callbackUrl=/dashboard");
   }
+
   return children;
 }

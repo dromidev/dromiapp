@@ -1,12 +1,13 @@
-import { getServerSession } from "next-auth/next";
 import { listMyMeetingsAction } from "@/app/(encuesta)/actions";
 import { DashboardClient } from "@/components/encuesta/dashboard-client";
-import { authOptions } from "@/lib/auth-options";
+import { getEncuestaServerSession } from "@/lib/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+  const result = await getEncuestaServerSession();
+  const session = result.ok ? result.session : null;
+
   const meetings = await listMyMeetingsAction();
   const initialMeetings = meetings.map((m) => ({
     id: m.id,

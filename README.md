@@ -33,6 +33,19 @@ En **Project Settings → Database → Connection string** suele aparecer el **T
 
 Los **códigos de copropietario** del CSV se hashean con `ASSISTANT_VOTING_CODE_SECRET` o, si no existe, con `AUTH_SECRET` (si cambias el secreto, los códigos importados dejan de coincidir).
 
+### Despliegue (Vercel / producción) — `encuesta.dromi.lat`
+
+Si tras el deploy ves **“Application error: a server-side exception…”**, casi siempre faltan variables en el proyecto de Vercel:
+
+| Variable | Ejemplo / notas |
+|----------|------------------|
+| `DATABASE_URL` | URI del pooler **6543** (transacción) de Supabase |
+| `AUTH_SECRET` o `NEXTAUTH_SECRET` | Genera uno: `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | **`https://encuesta.dromi.lat`** (sin barra final; debe coincidir con el subdominio real) |
+| `NEXT_PUBLIC_ENCUESTA_ORIGIN` | `https://encuesta.dromi.lat` (QR y enlaces públicos) |
+
+Tras guardar variables, **vuelve a desplegar** (Redeploy). Sin `AUTH_SECRET` o sin `NEXTAUTH_URL` correcta, NextAuth falla al cargar `/login` o `/dashboard`.
+
 ## Base de datos
 
 Generar y aplicar migraciones (con `DATABASE_URL` definida):
