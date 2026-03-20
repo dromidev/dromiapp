@@ -285,6 +285,34 @@ export async function toggleQuestionOpenAction(
   return { ok: true as const };
 }
 
+export async function deleteQuestionAction(questionId: string) {
+  const userId = await getDashboardUserId();
+  if (!userId) {
+    return { ok: false as const, error: "No autenticado" };
+  }
+  if (!z.string().uuid().safeParse(questionId).success) {
+    return { ok: false as const, error: "Pregunta inválida" };
+  }
+
+  const found = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .innerJoin(meetings, eq(questions.meetingId, meetings.id))
+    .where(
+      and(eq(questions.id, questionId), eq(meetings.createdByUserId, userId))
+    )
+    .limit(1);
+
+  if (found.length === 0) {
+    return { ok: false as const, error: "Pregunta no encontrada" };
+  }
+
+  await db.delete(questions).where(eq(questions.id, questionId));
+
+  revalidatePath("/dashboard");
+  return { ok: true as const };
+}
+
 function normalizeHeader(h: string): string {
   return h
     .trim()

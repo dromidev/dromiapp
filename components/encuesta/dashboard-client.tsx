@@ -4,6 +4,7 @@ import {
   createMeetingAction,
   createQuestionAction,
   deleteMeetingAction,
+  deleteQuestionAction,
   getQuestionQrDataUrlAction,
   importAssistantsCsvAction,
   listQuestionsForMeetingAction,
@@ -65,15 +66,14 @@ const COLORS = ["#1E6FFF", "#00C9A7", "#F59E0B", "#EC4899", "#8B5CF6", "#64748B"
 /** Iconos con trazo fino (estilo light) */
 const ICON = { className: "h-5 w-5 shrink-0", strokeWidth: 1.25 } as const;
 
-const SIDEBAR_NAV: {
+const SIDEBAR_MAIN_NAV: {
   id: TabId;
   label: string;
   Icon: typeof Building2;
 }[] = [
-  { id: "meetings", label: "Asambleas", Icon: Building2 },
+  { id: "meetings", label: "Asamblea", Icon: Building2 },
+  { id: "create", label: "Crear Preguntas", Icon: CirclePlus },
   { id: "results", label: "Resultados", Icon: BarChart3 },
-  { id: "create", label: "Crear pregunta", Icon: CirclePlus },
-  { id: "export", label: "Exportar", Icon: FileDown },
   { id: "assistants", label: "Asistentes", Icon: UserPlus },
 ];
 
@@ -127,11 +127,10 @@ export function DashboardClient({
     "yes_no" | "multiple_choice" | "accept_decline" | "scale_1_5"
   >("yes_no");
   const [qOptionsText, setQOptionsText] = useState("");
-  const [lastCreated, setLastCreated] = useState<{
+  const [questionQr, setQuestionQr] = useState<{
     publicId: string;
-    accessCode: string;
     dataUrl: string;
-    voteUrl: string;
+    title: string;
   } | null>(null);
 
   const activeMeeting = useMemo(
@@ -255,11 +254,24 @@ export function DashboardClient({
     setToast("Asamblea eliminada");
   }
 
+  async function loadQuestionQr(publicId: string, title: string) {
+    if (!publicId) return;
+    setBusy(true);
+    setToast(null);
+    const qr = await getQuestionQrDataUrlAction(publicId);
+    setBusy(false);
+    if (!qr.ok) {
+      setToast(qr.error);
+      return;
+    }
+    setQuestionQr({ publicId, dataUrl: qr.dataUrl, title });
+  }
+
   async function onCreateQuestion(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setToast(null);
-    setLastCreated(null);
+    const titleCapture = qTitle.trim() || "Pregunta";
     const fd = new FormData();
     fd.set("meetingId", meetingId);
     fd.set("title", qTitle);
@@ -267,25 +279,47 @@ export function DashboardClient({
     fd.set("type", qType);
     fd.set("optionsText", qOptionsText);
     const r = await createQuestionAction(fd);
-    setBusy(false);
     if (!r.ok) {
+      setBusy(false);
       setToast(r.error);
       return;
     }
     const qr = await getQuestionQrDataUrlAction(r.publicId);
+    setBusy(false);
     if (qr.ok) {
-      setLastCreated({
+      setQuestionQr({
         publicId: r.publicId,
-        accessCode: r.accessCode,
         dataUrl: qr.dataUrl,
-        voteUrl: qr.voteUrl,
+        title: titleCapture,
       });
+      setToast("Pregunta creada");
+    } else {
+      setToast(`Pregunta creada. ${qr.error}`);
+      setQuestionQr(null);
     }
     setQTitle("");
     setQDesc("");
     setQOptionsText("");
     await refreshQuestions(meetingId);
-    setToast("Pregunta creada");
+  }
+
+  async function onDeleteQuestion(q: QuestionRow) {
+    const ok = window.confirm(
+      `¿Eliminar la pregunta «${q.title}»?\n\nSe borrarán los votos de esta pregunta. No se puede deshacer.`
+    );
+    if (!ok) return;
+    setBusy(true);
+    setToast(null);
+    const r = await deleteQuestionAction(q.id);
+    setBusy(false);
+    if (!r.ok) {
+      setToast(r.error);
+      return;
+    }
+    if (questionQr?.publicId === q.publicId) setQuestionQr(null);
+    setToast("Pregunta eliminada");
+    await refreshQuestions(meetingId);
+    void fetchLive();
   }
 
   async function onToggleOpen(q: QuestionRow) {
@@ -300,7 +334,7 @@ export function DashboardClient({
   async function onImportCsv(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!meetingId) {
-      setToast("Selecciona una asamblea en la pestaña Asambleas");
+      setToast("Selecciona una asamblea en la pestaña Asamblea");
       return;
     }
     const form = e.currentTarget;
@@ -330,8 +364,8 @@ export function DashboardClient({
   const selectedQuestionRow = questions.find((q) => q.id === selectedQ);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-4 py-4 backdrop-blur">
+    <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0f1419]">
+      <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/90 px-4 py-4 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-1">
           <h1 className="text-lg font-semibold text-white">Panel de votación</h1>
@@ -349,7 +383,7 @@ export function DashboardClient({
           ) : (
             <p className="mt-1 text-sm text-amber-400/90">
               No hay asamblea seleccionada. Créala o elígela en{" "}
-              <strong className="font-medium">Asambleas</strong>.
+              <strong className="font-medium">Asamblea</strong>.
             </p>
           )}
           </div>
@@ -371,10 +405,13 @@ export function DashboardClient({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950/90 py-3">
-          <nav className="flex flex-col gap-0.5 px-2" aria-label="Secciones">
-            {SIDEBAR_NAV.map(({ id, label, Icon }) => {
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-900 bg-zinc-950 py-3 min-h-0">
+          <nav
+            className="flex min-h-0 flex-1 flex-col gap-0.5 px-2"
+            aria-label="Secciones"
+          >
+            {SIDEBAR_MAIN_NAV.map(({ id, label, Icon }) => {
               const active = tab === id;
               return (
                 <button
@@ -393,6 +430,20 @@ export function DashboardClient({
               );
             })}
           </nav>
+          <div className="mt-auto border-t border-zinc-800 px-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setTab("export")}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+                tab === "export"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+              }`}
+            >
+              <FileDown {...ICON} aria-hidden />
+              Exportar
+            </button>
+          </div>
         </aside>
 
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-8">
@@ -554,8 +605,62 @@ export function DashboardClient({
                   >
                     Pantalla de proyección
                   </button>
+                  <button
+                    type="button"
+                    disabled={busy || !selectedPublicId || !selectedQuestionRow}
+                    onClick={() => {
+                      if (!selectedQuestionRow) return;
+                      void loadQuestionQr(
+                        selectedQuestionRow.publicId,
+                        selectedQuestionRow.title
+                      );
+                    }}
+                    className="mt-5 rounded-lg border border-emerald-600/50 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-40"
+                  >
+                    Ver código QR
+                  </button>
+                  {selectedQuestionRow ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void onDeleteQuestion(selectedQuestionRow)}
+                      className="mt-5 inline-flex items-center gap-2 rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2 text-sm text-red-200 hover:bg-red-950/50 disabled:opacity-50"
+                    >
+                      <Trash2 {...ICON} className="h-4 w-4" />
+                      Eliminar pregunta
+                    </button>
+                  ) : null}
                 </div>
               </div>
+
+              {questionQr ? (
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-emerald-200">
+                        Código QR
+                      </h3>
+                      <p className="mt-1 text-xs text-zinc-400">{questionQr.title}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setQuestionQr(null)}
+                      className="text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      Ocultar
+                    </button>
+                  </div>
+                  <div className="mt-4 flex justify-center rounded-xl bg-white p-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={questionQr.dataUrl}
+                      alt="Código QR"
+                      width={280}
+                      height={280}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               {live && selectedQuestionRow ? (
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -683,10 +788,36 @@ export function DashboardClient({
                 <h2 className="text-base font-semibold text-white">
                   Nueva pregunta
                 </h2>
-                <p className="text-xs text-zinc-500">
-                  Se asocia a la <strong>asamblea activa</strong> (pestaña
-                  Asambleas).
-                </p>
+                <div>
+                  <label
+                    htmlFor="create-question-meeting"
+                    className="block text-xs font-medium uppercase tracking-wide text-zinc-500"
+                  >
+                    Asamblea
+                  </label>
+                  <select
+                    id="create-question-meeting"
+                    value={meetingId}
+                    onChange={(e) => setMeetingId(e.target.value)}
+                    required
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                  >
+                    {meetings.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                        {formatMeetingCalendarDate(m.meetingDate)
+                          ? ` · ${formatMeetingCalendarDate(m.meetingDate)}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs text-zinc-500">
+                    La pregunta se guarda enlazada a esta asamblea. Los
+                    asistentes que importes en <strong>Asistentes</strong> deben
+                    ser de la <strong>misma</strong> asamblea para que los
+                    códigos de votación funcionen.
+                  </p>
+                </div>
                 <input
                   required
                   placeholder="Título de la pregunta"
@@ -734,28 +865,72 @@ export function DashboardClient({
                 </button>
               </form>
 
-              {lastCreated ? (
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6">
-                  <h3 className="text-sm font-semibold text-emerald-200">
-                    Pregunta creada
+              {questions.length > 0 ? (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+                  <h3 className="text-sm font-semibold text-white">
+                    Ver código QR de una pregunta
                   </h3>
-                  <p className="mt-2 text-xs text-zinc-400">
-                    Código de acceso (por si compartes el enlace sin QR):{" "}
-                    <span className="font-mono text-lg text-white">
-                      {lastCreated.accessCode}
-                    </span>
-                  </p>
                   <p className="mt-1 text-xs text-zinc-500">
-                    El QR ya incluye el acceso a la votación; el copropietario
-                    solo debe ingresar el <strong className="text-zinc-400">código que le entregó la administración</strong>.
+                    Elige la pregunta y pulsa el botón para mostrar el QR otra
+                    vez.
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500 break-all">
-                    {lastCreated.voteUrl}
-                  </p>
+                  <div className="mt-4 flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="block text-xs text-zinc-500">
+                        Pregunta
+                      </label>
+                      <select
+                        value={selectedQ}
+                        onChange={(e) => setSelectedQ(e.target.value)}
+                        className="mt-1 min-w-[220px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                      >
+                        {questions.map((q) => (
+                          <option key={q.id} value={q.id}>
+                            {q.title.slice(0, 60)}
+                            {q.title.length > 60 ? "…" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy || !selectedQuestionRow}
+                      onClick={() => {
+                        if (!selectedQuestionRow) return;
+                        void loadQuestionQr(
+                          selectedQuestionRow.publicId,
+                          selectedQuestionRow.title
+                        );
+                      }}
+                      className="rounded-lg border border-emerald-600/50 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-40"
+                    >
+                      Ver código QR
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {questionQr ? (
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-emerald-200">
+                        Código QR
+                      </h3>
+                      <p className="mt-1 text-xs text-zinc-400">{questionQr.title}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setQuestionQr(null)}
+                      className="text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      Ocultar
+                    </button>
+                  </div>
                   <div className="mt-4 flex justify-center rounded-xl bg-white p-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={lastCreated.dataUrl}
+                      src={questionQr.dataUrl}
                       alt="Código QR"
                       width={280}
                       height={280}
