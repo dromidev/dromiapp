@@ -41,8 +41,8 @@ export const assistants = pgTable(
     meetingId: uuid("meeting_id")
       .notNull()
       .references(() => meetings.id, { onDelete: "cascade" }),
-    tower: text("tower").notNull(),
-    apartment: text("apartment").notNull(),
+    /** Torre+apartamento en un solo valor (ej. 38503). */
+    unidad: text("unidad").notNull(),
     fullName: text("full_name").notNull(),
     /** HMAC-SHA256 del código de votación (búsqueda O(1)) */
     codeHash: text("code_hash").notNull(),

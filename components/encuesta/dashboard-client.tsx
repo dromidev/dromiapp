@@ -746,8 +746,8 @@ export function DashboardClient({
                     </span>
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
-                    El QR ya incluye ese acceso: cada copropietario solo ingresa
-                    su <strong className="text-zinc-400">código de apartamento</strong> del CSV.
+                    El QR ya incluye el acceso a la votación; el copropietario
+                    solo debe ingresar el <strong className="text-zinc-400">código que le entregó la administración</strong>.
                   </p>
                   <p className="mt-1 text-xs text-zinc-500 break-all">
                     {lastCreated.voteUrl}
@@ -791,19 +791,15 @@ export function DashboardClient({
                 Importar asistentes (CSV)
               </h2>
               <p className="mt-2 text-sm text-zinc-500">
-                Columnas: <strong>Torre</strong>, <strong>Apto</strong> (o
-                Apartamento), <strong>Nombre</strong>, y una columna con el{" "}
-                <strong>código único por apartamento</strong> (p. ej.{" "}
+                Columnas: <strong>Unidad</strong> (torre+apartamento en un solo
+                valor, ej. 38503), o bien <strong>Torre</strong> y{" "}
+                <strong>Apto</strong> por separado (se unen sin espacio), más{" "}
+                <strong>Nombre</strong> y el{" "}
+                <strong>código único de votación</strong> (p. ej.{" "}
                 <span className="font-mono text-zinc-400">
                   Codigo de Votacion
                 </span>
-                ,{" "}
-                <span className="font-mono text-zinc-400">
-                  Codigo Apartamento
-                </span>{" "}
-                o <span className="font-mono text-zinc-400">Codigo Unidad</span>
-                ). Ese es el valor que cada copropietario escribe al votar. Una
-                fila por unidad. Asamblea activa.
+                ). Una fila por unidad. Asamblea activa.
               </p>
               <form onSubmit={onImportCsv} className="mt-4 space-y-3">
                 <input type="hidden" name="meetingId" value={meetingId} />

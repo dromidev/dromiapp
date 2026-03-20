@@ -341,9 +341,18 @@ export async function importAssistantsCsvAction(formData: FormData) {
   let codePriority = 0;
   for (const h of headers) {
     const k = normalizeHeader(h);
-    if (k.includes("torre")) map.tower = h;
-    if (k === "apto" || k.includes("apto") || k.includes("apartamento")) {
-      map.apartment = h;
+    /** Una columna con torre+apartamento junto (ej. 38503) o “Unidad” sin ser código. */
+    const isCombinedUnitCol =
+      (k.includes("unidad") && !k.includes("codigo")) ||
+      (k.includes("torre") &&
+        (k.includes("apto") || k.includes("apartamento")));
+    if (isCombinedUnitCol) {
+      map.unidad = h;
+    } else {
+      if (k.includes("torre")) map.tower = h;
+      if (k === "apto" || k.includes("apto") || k.includes("apartamento")) {
+        map.apartment = h;
+      }
     }
     if (k.includes("nombre")) map.name = h;
     /** Código único por apartamento / copropietario (tú lo defines en el CSV). */
@@ -365,12 +374,26 @@ export async function importAssistantsCsvAction(formData: FormData) {
     }
   }
   if (codeHeader) map.code = codeHeader;
-  if (!map.tower || !map.apartment || !map.name || !map.code) {
+
+  const hasUnitSource =
+    Boolean(map.unidad) ||
+    Boolean(map.tower && map.apartment) ||
+    Boolean(map.tower);
+
+  if (!hasUnitSource || !map.name || !map.code) {
     return {
       ok: false as const,
       error:
-        "El CSV debe incluir columnas: Torre, Apto (o Apartamento), Nombre, y una columna de código único (p. ej. Codigo de Votacion, Codigo Apartamento o Codigo Unidad)",
+        "El CSV debe incluir: Nombre, código único de votación (p. ej. Codigo de Votacion), y unidad: columna Unidad (o Torre+Apto en una sola columna), o columnas Torre y Apto/Apartamento separadas (se concatenan).",
     };
+  }
+
+  function rowUnidad(r: Record<string, string>): string {
+    if (map.unidad) return String(r[map.unidad] ?? "").trim();
+    const t = map.tower ? String(r[map.tower] ?? "").trim() : "";
+    const a = map.apartment ? String(r[map.apartment] ?? "").trim() : "";
+    if (t && a) return t + a;
+    return t;
   }
 
   const secret =
@@ -385,19 +408,17 @@ export async function importAssistantsCsvAction(formData: FormData) {
   const errors: string[] = [];
   const seenCodes = new Set<string>();
   const toInsert: {
-    tower: string;
-    apartment: string;
+    unidad: string;
     fullName: string;
     codeHash: string;
   }[] = [];
 
   rows.forEach((r, idx) => {
-    const tower = String(r[map.tower!] ?? "").trim();
-    const apartment = String(r[map.apartment!] ?? "").trim();
+    const unidad = rowUnidad(r);
     const fullName = String(r[map.name!] ?? "").trim();
     const code = String(r[map.code!] ?? "").trim();
     const line = idx + 2;
-    if (!tower || !apartment || !fullName || !code) {
+    if (!unidad || !fullName || !code) {
       errors.push(`Fila ${line}: campos obligatorios vacíos`);
       return;
     }
@@ -407,7 +428,7 @@ export async function importAssistantsCsvAction(formData: FormData) {
       return;
     }
     seenCodes.add(fp);
-    toInsert.push({ tower, apartment, fullName, codeHash: fp });
+    toInsert.push({ unidad, fullName, codeHash: fp });
   });
 
   if (errors.length > 0) {
@@ -419,8 +440,7 @@ export async function importAssistantsCsvAction(formData: FormData) {
       await db.insert(assistants).values(
         toInsert.map((t) => ({
           meetingId,
-          tower: t.tower,
-          apartment: t.apartment,
+          unidad: t.unidad,
           fullName: t.fullName,
           codeHash: t.codeHash,
         }))

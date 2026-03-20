@@ -57,12 +57,16 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setMessage(null);
     if (!accessCode.trim()) {
       setMessage(
-        "Falta el código de acceso de la votación. Usa el enlace completo del QR o pídelo a la administración."
+        accessFromQrLink
+          ? "Enlace incompleto. Vuelve a escanear el QR."
+          : "Falta el código de acceso. Usa el enlace completo o pídelo a la administración."
       );
       return;
     }
     if (!assistantCode.trim()) {
-      setMessage("Ingresa el código único de tu apartamento (según el CSV).");
+      setMessage(
+        "Ingresa el código proporcionado por la administración."
+      );
       return;
     }
     setLoading(true);
@@ -166,13 +170,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
 
   return (
     <form onSubmit={onVerify} className="space-y-5">
-      {accessFromQrLink ? (
-        <p className="rounded-lg border border-[#1E6FFF]/30 bg-[#1E6FFF]/10 px-3 py-2 text-xs text-zinc-300">
-          Acceso reconocido desde el QR. Ingresa solo el{" "}
-          <strong className="text-white">código único de tu apartamento</strong>{" "}
-          (el que cargó la administración en el listado CSV).
-        </p>
-      ) : (
+      {!accessFromQrLink ? (
         <div>
           <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
             Código de acceso de la votación
@@ -186,23 +184,23 @@ export function VoteForm({ publicId }: { publicId: string }) {
             placeholder="Te lo indica la administración (junto al enlace o el QR)"
           />
         </div>
-      )}
+      ) : null}
       <div>
-        <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
-          Código único de tu apartamento
+        <label
+          htmlFor="assistant-code"
+          className="block text-sm font-medium text-zinc-200"
+        >
+          Ingresa el código proporcionado por la administración
         </label>
         <input
+          id="assistant-code"
           value={assistantCode}
           onChange={(e) => setAssistantCode(e.target.value)}
           required
           autoComplete="off"
-          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none ring-[#1E6FFF]/40 focus:ring-2"
-          placeholder="El de tu fila en el CSV (un código por unidad)"
+          className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none ring-[#1E6FFF]/40 focus:ring-2"
+          placeholder=""
         />
-        <p className="mt-1 text-xs text-zinc-600">
-          Debe coincidir exactamente con la columna de código que subió la
-          administración para tu torre y apartamento.
-        </p>
       </div>
       {message ? (
         <p className="text-sm text-red-400" role="alert">

@@ -15,6 +15,13 @@
       "when": 1773984510822,
       "tag": "0001_disable_rls_for_drizzle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773984510823,
+      "tag": "0002_assistants_unidad",
+      "breakpoints": true
     }
   ]
 }
