@@ -12,7 +12,8 @@ Landing de transporte en [app/page.tsx](app/page.tsx) y **sistema de votaciones 
 Copia [.env.example](.env.example) a `.env` o `.env.local` y completa al menos:
 
 - `DATABASE_URL` — cadena PostgreSQL
-- `AUTH_SECRET` — secreto para NextAuth (sesión del panel); en prod también `NEXTAUTH_URL` con la URL pública del subdominio de encuestas
+- `DASHBOARD_USER_ID` **o** `SEED_ADMIN_EMAIL` / `DASHBOARD_ADMIN_EMAIL` — qué fila de `public.users` usa el panel (sin login)
+- `AUTH_SECRET` — recomendado para CSV y NextAuth legacy; en prod `NEXTAUTH_URL` si usas `/api/auth`
 - `NEXT_PUBLIC_ENCUESTA_ORIGIN` — base usada en los códigos QR (opcional en local)
 
 ### Supabase (`DATABASE_URL`)
@@ -29,7 +30,7 @@ En **Project Settings → Database → Connection string** suele aparecer el **T
 - **`DATABASE_POOL_MAX`** (opcional): por defecto el cliente usa **2** conexiones por proceso con el pooler **6543** y **1** con **5432** (sesión). Con muchas réplicas de la app, baja a **`1`** por instancia si saturaras el plan.
 - Para importar CSV de asistentes: `ASSISTANT_VOTING_CODE_SECRET` o `AUTH_SECRET` (secreto estable)
 
-**Panel (`/dashboard`): login con NextAuth** usando correo y contraseña de la tabla `public.users` (mismo hash bcrypt que `npm run db:seed-admin`). Cada usuario ve solo sus asambleas (`created_by_user_id`).
+**Panel (`/dashboard`): acceso directo** (sin contraseña). Configura `DASHBOARD_USER_ID` (uuid en `public.users`) o el mismo `SEED_ADMIN_EMAIL` que usaste con `db:seed-admin`. Solo se listan y gestionan asambleas de ese usuario (`created_by_user_id`).
 
 Los **códigos de copropietario** del CSV se hashean con `ASSISTANT_VOTING_CODE_SECRET` o, si no existe, con `AUTH_SECRET` (si cambias el secreto, los códigos importados dejan de coincidir).
 
@@ -40,11 +41,12 @@ Si tras el deploy ves **“Application error: a server-side exception…”**, c
 | Variable | Ejemplo / notas |
 |----------|------------------|
 | `DATABASE_URL` | URI del pooler **6543** (transacción) de Supabase |
-| `AUTH_SECRET` o `NEXTAUTH_SECRET` | Genera uno: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | **`https://encuesta.dromi.lat`** (sin barra final; debe coincidir con el subdominio real) |
+| `DASHBOARD_USER_ID` o `SEED_ADMIN_EMAIL` | Usuario del panel (fila en `public.users`) |
+| `AUTH_SECRET` o `NEXTAUTH_SECRET` | CSV / legacy; genera: `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | **`https://encuesta.dromi.lat`** si usas rutas NextAuth |
 | `NEXT_PUBLIC_ENCUESTA_ORIGIN` | `https://encuesta.dromi.lat` (QR y enlaces públicos) |
 
-Tras guardar variables, **vuelve a desplegar** (Redeploy). Sin `AUTH_SECRET` o sin `NEXTAUTH_URL` correcta, NextAuth falla al cargar `/login` o `/dashboard`.
+Tras guardar variables, **vuelve a desplegar**. Sin usuario de panel (`DASHBOARD_USER_ID` o email), el dashboard carga pero las acciones fallan.
 
 ## Base de datos
 
@@ -80,7 +82,7 @@ npm run dev
 
 - Marketing: [http://localhost:3000](http://localhost:3000)
 - Panel: [http://localhost:3000/dashboard](http://localhost:3000/dashboard), votación pública en `/votar/[publicId]`.
-- `/login` redirige a `/dashboard` (compatibilidad).
+- `/login` redirige a `/dashboard`.
 
 En **producción**, el dominio principal solo sirve la landing; rutas `/dashboard`, `/votar`, `/proyeccion` y `/api/*` se redirigen al origen en `NEXT_PUBLIC_ENCUESTA_ORIGIN` si el host no es el de encuesta (ver [middleware.ts](middleware.ts)).
 

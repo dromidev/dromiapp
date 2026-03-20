@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 import { isEncuestaHost, isMainMarketingHost } from "@/lib/hosts";
-
-function authSecret(): string | undefined {
-  return process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-}
 
 function isEncuestaPath(pathname: string): boolean {
   if (pathname.startsWith("/api/")) return true;
@@ -44,62 +39,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname === "/login" || pathname.startsWith("/login/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   const encuesta = isEncuestaHost(host);
   const main = isMainMarketingHost(host);
-
-  const secret = authSecret();
-  /** Raíz o ruta inválida en subdominio encuesta: hace falta saber si hay sesión para /login vs /dashboard. */
-  const encuestaNeedsSessionHint =
-    encuesta &&
-    !main &&
-    (pathname === "/" ||
-      pathname === "" ||
-      !isEncuestaPath(pathname));
-
-  const mayNeedAuth =
-    pathname === "/dashboard" ||
-    pathname.startsWith("/dashboard/") ||
-    pathname === "/login" ||
-    pathname.startsWith("/login/") ||
-    encuestaNeedsSessionHint;
-
-  const token =
-    secret && mayNeedAuth
-      ? await getToken({ req: request, secret })
-      : null;
-  const isAuthed = Boolean(token);
-
-  if (pathname === "/login" || pathname.startsWith("/login/")) {
-    if (isAuthed) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
-  }
-
-  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
-    if (!secret || !isAuthed) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set(
-        "callbackUrl",
-        pathname + request.nextUrl.search
-      );
-      return NextResponse.redirect(url);
-    }
-  }
 
   if (encuesta && !main) {
     if (pathname === "/" || pathname === "") {
       const url = request.nextUrl.clone();
-      url.pathname = isAuthed ? "/dashboard" : "/login";
+      url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
     if (!isEncuestaPath(pathname)) {
       const url = request.nextUrl.clone();
-      url.pathname = isAuthed ? "/dashboard" : "/login";
+      url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
     return NextResponse.next();

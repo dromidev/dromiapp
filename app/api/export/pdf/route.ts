@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth-options";
+import { getDashboardUserId } from "@/lib/dashboard-user";
 import { getMeetingExportPayload } from "@/lib/meeting-export";
 import { renderActaPdfBuffer } from "@/lib/pdf/acta-pdf";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
+  const userId = await getDashboardUserId();
   if (!userId) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Configura DASHBOARD_USER_ID o SEED_ADMIN_EMAIL" },
+      { status: 401 }
+    );
   }
 
   const { searchParams } = new URL(request.url);

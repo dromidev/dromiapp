@@ -1,12 +1,11 @@
 import { listMyMeetingsAction } from "@/app/(encuesta)/actions";
 import { DashboardClient } from "@/components/encuesta/dashboard-client";
-import { getEncuestaServerSession } from "@/lib/auth-session";
+import { getDashboardUserContext } from "@/lib/dashboard-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const result = await getEncuestaServerSession();
-  const session = result.ok ? result.session : null;
+  const ctx = await getDashboardUserContext();
 
   const meetings = await listMyMeetingsAction();
   const initialMeetings = meetings.map((m) => ({
@@ -21,8 +20,8 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       initialMeetings={initialMeetings}
-      userEmail={session?.user?.email ?? ""}
-      userName={session?.user?.name ?? ""}
+      userEmail={ctx?.email ?? ""}
+      userName={ctx?.name ?? ""}
     />
   );
 }

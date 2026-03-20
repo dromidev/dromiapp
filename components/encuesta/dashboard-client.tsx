@@ -15,7 +15,6 @@ import {
   Building2,
   CirclePlus,
   FileDown,
-  LogOut,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -32,8 +31,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { signOut } from "next-auth/react";
-
 type MeetingRow = {
   id: string;
   title: string;
@@ -364,16 +361,12 @@ export function DashboardClient({
               {userName && userEmail ? <span className="text-zinc-600"> · </span> : null}
               {userEmail ? (
                 <span className="font-mono text-zinc-400">{userEmail}</span>
-              ) : null}
+              ) : (
+                <span className="text-amber-400/90">
+                  Define DASHBOARD_USER_ID o SEED_ADMIN_EMAIL para gestionar asambleas
+                </span>
+              )}
             </p>
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-900 hover:text-white"
-            >
-              <LogOut {...ICON} className="h-4 w-4" />
-              Cerrar sesión
-            </button>
           </div>
         </div>
       </header>

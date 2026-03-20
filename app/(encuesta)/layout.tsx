@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SessionProvider } from "@/components/encuesta/session-provider";
 
 export const metadata: Metadata = {
   title: "Encuesta — Asamblea",
@@ -12,7 +11,7 @@ export default function EncuestaLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="min-h-screen bg-[#0f1419] text-zinc-100 antialiased">
-      <SessionProvider>{children}</SessionProvider>
+      {children}
     </div>
   );
 }
