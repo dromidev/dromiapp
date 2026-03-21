@@ -96,6 +96,25 @@ function dateInputToMeetingDateTime(isoDate: string): string {
   return isoDate;
 }
 
+function QrPresentationLink({
+  publicId,
+  className = "",
+}: {
+  publicId: string;
+  className?: string;
+}) {
+  return (
+    <a
+      href={`/dashboard/qr/${publicId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`text-sm font-medium text-emerald-300 underline-offset-2 hover:text-emerald-200 hover:underline ${className}`}
+    >
+      Abrir en pantalla completa (videobeam)
+    </a>
+  );
+}
+
 export function DashboardClient({
   initialMeetings,
   userEmail,
@@ -639,6 +658,12 @@ export function DashboardClient({
                       Eliminar pregunta
                     </button>
                   ) : null}
+                  {selectedPublicId ? (
+                    <QrPresentationLink
+                      publicId={selectedPublicId}
+                      className="basis-full mt-1"
+                    />
+                  ) : null}
                 </div>
               </div>
 
@@ -668,12 +693,16 @@ export function DashboardClient({
                       height={280}
                     />
                   </div>
+                  <QrPresentationLink
+                    publicId={questionQr.publicId}
+                    className="mt-3 block text-center"
+                  />
                 </div>
               ) : null}
 
               {live && selectedQuestionRow ? (
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
                     <h3 className="text-sm font-medium text-zinc-400">
                       Participación
                     </h3>
@@ -698,7 +727,7 @@ export function DashboardClient({
                       </span>
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
                     <h3 className="text-sm font-medium text-zinc-400">Resumen</h3>
                     <p className="mt-2 text-lg text-white">{live.question.title}</p>
                     <p className="mt-2 text-sm text-zinc-500">
@@ -713,11 +742,11 @@ export function DashboardClient({
                       ) : null}
                     </p>
                   </div>
-                  <div className="lg:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
                     <h3 className="mb-4 text-sm font-medium text-zinc-400">
                       Gráfico de barras
                     </h3>
-                    <div className="h-72 w-full">
+                    <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={live.breakdown}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
@@ -743,11 +772,11 @@ export function DashboardClient({
                       </ResponsiveContainer>
                     </div>
                   </div>
-                  <div className="lg:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
                     <h3 className="mb-4 text-sm font-medium text-zinc-400">
                       Gráfico circular
                     </h3>
-                    <div className="h-72 w-full">
+                    <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -756,7 +785,7 @@ export function DashboardClient({
                             nameKey="label"
                             cx="50%"
                             cy="50%"
-                            outerRadius={100}
+                            outerRadius="75%"
                             label={(props) => {
                               const name = String(props.name ?? "");
                               const pct = Number(props.percent ?? 0) * 100;
@@ -789,10 +818,23 @@ export function DashboardClient({
           ) : null}
 
           {meetings.length > 0 && tab === "create" ? (
-            <section className="mx-auto max-w-3xl space-y-6">
+            <section
+              className={
+                questions.length > 0 || questionQr
+                  ? "mx-auto max-w-6xl"
+                  : "mx-auto max-w-3xl"
+              }
+            >
+              <div
+                className={
+                  questions.length > 0 || questionQr
+                    ? "grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2"
+                    : "space-y-6"
+                }
+              >
               <form
                 onSubmit={onCreateQuestion}
-                className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-3"
+                className="flex h-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-3"
               >
                 <h2 className="text-base font-semibold text-white">
                   Nueva pregunta
@@ -868,85 +910,103 @@ export function DashboardClient({
                 <button
                   type="submit"
                   disabled={busy || !meetingId}
-                  className="rounded-lg bg-[#1E6FFF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className="mt-auto rounded-lg bg-[#1E6FFF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
                   Crear y generar QR
                 </button>
               </form>
 
-              {questions.length > 0 ? (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                  <h3 className="text-sm font-semibold text-white">
-                    Ver código QR de una pregunta
-                  </h3>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Elige la pregunta y pulsa el botón para mostrar el QR otra
-                    vez.
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-end gap-3">
-                    <div>
-                      <label className="block text-xs text-zinc-500">
-                        Pregunta
-                      </label>
-                      <select
-                        value={selectedQ}
-                        onChange={(e) => setSelectedQ(e.target.value)}
-                        className="mt-1 min-w-[220px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-                      >
-                        {questions.map((q) => (
-                          <option key={q.id} value={q.id}>
-                            {q.title.slice(0, 60)}
-                            {q.title.length > 60 ? "…" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={busy || !selectedQuestionRow}
-                      onClick={() => {
-                        if (!selectedQuestionRow) return;
-                        void loadQuestionQr(
-                          selectedQuestionRow.publicId,
-                          selectedQuestionRow.title
-                        );
-                      }}
-                      className="rounded-lg border border-emerald-600/50 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-40"
-                    >
-                      Ver código QR
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {questionQr ? (
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-sm font-semibold text-emerald-200">
-                        Código QR
+              {questions.length > 0 || questionQr ? (
+                <div className="flex min-h-0 w-full min-w-0 flex-col gap-6">
+                  {questions.length > 0 ? (
+                    <div className="flex min-h-0 min-w-0 w-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+                      <h3 className="text-sm font-semibold text-white">
+                        Ver código QR de una pregunta
                       </h3>
-                      <p className="mt-1 text-xs text-zinc-400">{questionQr.title}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Elige la pregunta y pulsa el botón para mostrar el QR
+                        otra vez.
+                      </p>
+                      <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                        <div className="min-w-0 w-full flex-1 sm:min-w-[12rem]">
+                          <label className="block text-xs text-zinc-500">
+                            Pregunta
+                          </label>
+                          <select
+                            value={selectedQ}
+                            onChange={(e) => setSelectedQ(e.target.value)}
+                            className="mt-1 w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                          >
+                            {questions.map((q) => (
+                              <option key={q.id} value={q.id}>
+                                {q.title.slice(0, 60)}
+                                {q.title.length > 60 ? "…" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={busy || !selectedQuestionRow}
+                          onClick={() => {
+                            if (!selectedQuestionRow) return;
+                            void loadQuestionQr(
+                              selectedQuestionRow.publicId,
+                              selectedQuestionRow.title
+                            );
+                          }}
+                          className="w-full shrink-0 rounded-lg border border-emerald-600/50 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-40 sm:w-auto"
+                        >
+                          Ver código QR
+                        </button>
+                      </div>
+                      {selectedQuestionRow ? (
+                        <QrPresentationLink
+                          publicId={selectedQuestionRow.publicId}
+                          className="mt-4 inline-block"
+                        />
+                      ) : null}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setQuestionQr(null)}
-                      className="text-xs text-zinc-500 hover:text-zinc-300"
-                    >
-                      Ocultar
-                    </button>
-                  </div>
-                  <div className="mt-4 flex justify-center rounded-xl bg-white p-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={questionQr.dataUrl}
-                      alt="Código QR"
-                      width={280}
-                      height={280}
-                    />
-                  </div>
+                  ) : null}
+
+                  {questionQr ? (
+                    <div className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-emerald-200">
+                            Código QR
+                          </h3>
+                          <p className="mt-1 text-xs text-zinc-400">
+                            {questionQr.title}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setQuestionQr(null)}
+                          className="text-xs text-zinc-500 hover:text-zinc-300"
+                        >
+                          Ocultar
+                        </button>
+                      </div>
+                      <div className="mt-4 flex justify-center rounded-xl bg-white p-6 sm:p-8">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={questionQr.dataUrl}
+                          alt="Código QR"
+                          width={280}
+                          height={280}
+                          className="mx-auto h-auto w-full max-w-[280px]"
+                        />
+                      </div>
+                      <QrPresentationLink
+                        publicId={questionQr.publicId}
+                        className="mt-4 block text-center"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
+              </div>
             </section>
           ) : null}
 
