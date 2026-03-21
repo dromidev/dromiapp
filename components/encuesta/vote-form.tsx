@@ -7,6 +7,11 @@ import { submitVoteAction, verifyVoteSessionAction } from "@/app/(encuesta)/vote
 
 type Phase = "hydrating" | "codes" | "vote" | "done" | "already";
 
+/** Código de acceso de la pregunta (va en el QR en #a=…); persiste en la pestaña al refrescar. */
+function voteAccessStorageKey(publicId: string) {
+  return `dromi:voteAccess:${publicId}`;
+}
+
 function readAccessCodeFromHash(): string | null {
   if (typeof window === "undefined") return null;
   const raw = window.location.hash.replace(/^#/, "");
@@ -23,10 +28,9 @@ function readAccessCodeFromHash(): string | null {
 }
 
 export function VoteForm({ publicId }: { publicId: string }) {
+  /** Código de acceso de la votación (desde QR / enlace o sessionStorage); no se muestra al usuario. */
   const [accessCode, setAccessCode] = useState("");
   const [assistantCode, setAssistantCode] = useState("");
-  /** true si el enlace del QR (u otro) trae el código de acceso en #a=… */
-  const [accessFromQrLink, setAccessFromQrLink] = useState(false);
   const [phase, setPhase] = useState<Phase>("hydrating");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,13 +48,29 @@ export function VoteForm({ publicId }: { publicId: string }) {
   }, [question]);
 
   useLayoutEffect(() => {
+    const storageKey = voteAccessStorageKey(publicId);
+    let resolved = "";
+
     const fromHash = readAccessCodeFromHash();
     if (fromHash) {
-      setAccessCode(fromHash.trim());
-      setAccessFromQrLink(true);
+      resolved = fromHash.trim();
+      try {
+        sessionStorage.setItem(storageKey, resolved);
+      } catch {
+        /* privado / bloqueado */
+      }
       const path = window.location.pathname + window.location.search;
       window.history.replaceState(null, "", path);
+    } else {
+      try {
+        const stored = sessionStorage.getItem(storageKey);
+        if (stored?.trim()) resolved = stored.trim();
+      } catch {
+        /* ignorar */
+      }
     }
+
+    if (resolved) setAccessCode(resolved);
     setPhase("codes");
   }, [publicId]);
 
@@ -67,16 +87,12 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setMessage(null);
     if (!accessCode.trim()) {
       setMessage(
-        accessFromQrLink
-          ? "Enlace incompleto. Vuelve a escanear el QR."
-          : "Falta el código de acceso. Usa el enlace completo o pídelo a la administración."
+        "Abre esta página desde el código QR o el enlace completo que te dio la administración. Si recargaste la página, vuelve a escanear el QR."
       );
       return;
     }
     if (!assistantCode.trim()) {
-      setMessage(
-        "Ingresa el código proporcionado por la administración."
-      );
+      setMessage("Ingresa el código que te entregó la administración.");
       return;
     }
     setLoading(true);
@@ -222,28 +238,16 @@ export function VoteForm({ publicId }: { publicId: string }) {
 
   return (
     <form onSubmit={onVerify} className="space-y-5">
-      {!accessFromQrLink ? (
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Código de acceso de la votación
-          </label>
-          <input
-            value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
-            required
-            autoComplete="off"
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none ring-[#1E6FFF]/40 focus:ring-2"
-            placeholder="Te lo indica la administración (junto al enlace o el QR)"
-          />
-        </div>
-      ) : null}
       <div>
         <label
           htmlFor="assistant-code"
           className="block text-sm font-medium text-zinc-200"
         >
-          Ingresa el código proporcionado por la administración
+          Código que te entregó la administración
         </label>
+        <p className="mt-1 text-xs text-zinc-500">
+          Es el código de tu unidad o copropietario para esta votación.
+        </p>
         <input
           id="assistant-code"
           value={assistantCode}
