@@ -10,8 +10,14 @@ export function getAssistantVotingCodeSecret(): string | undefined {
   return c || undefined;
 }
 
+/** Igual en import CSV y en pantalla de votación (Excel a veces mete espacios raros / BOM). */
 export function normalizeVotingCode(raw: string): string {
-  return raw.trim().toUpperCase().replace(/\s+/g, "");
+  return raw
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
 }
 
 export function hashAssistantVotingCode(

@@ -5,7 +5,9 @@ import { defaultOptionsForType } from "@/lib/question-defaults";
 import type { QuestionType } from "@/db/schema";
 import { submitVoteAction, verifyVoteSessionAction } from "@/app/(encuesta)/vote-actions";
 
-type Phase = "codes" | "vote" | "done" | "already";
+type Phase = "hydrating" | "codes" | "vote" | "done" | "already";
+
+const voteStorageKey = (publicId: string) => `dromi:vote:${publicId}`;
 
 function readAccessCodeFromHash(): string | null {
   if (typeof window === "undefined") return null;
@@ -27,7 +29,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
   const [assistantCode, setAssistantCode] = useState("");
   /** true si el enlace del QR (u otro) trae el código de acceso en #a=… */
   const [accessFromQrLink, setAccessFromQrLink] = useState(false);
-  const [phase, setPhase] = useState<Phase>("codes");
+  const [phase, setPhase] = useState<Phase>("hydrating");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [question, setQuestion] = useState<{
@@ -44,13 +46,38 @@ export function VoteForm({ publicId }: { publicId: string }) {
   }, [question]);
 
   useLayoutEffect(() => {
+    const key = voteStorageKey(publicId);
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved === "done") {
+        setPhase("done");
+        return;
+      }
+      if (saved === "already") {
+        setPhase("already");
+        return;
+      }
+    } catch {
+      /* modo privado / storage bloqueado */
+    }
+
     const fromHash = readAccessCodeFromHash();
-    if (!fromHash) return;
-    setAccessCode(fromHash.trim());
-    setAccessFromQrLink(true);
-    const path = window.location.pathname + window.location.search;
-    window.history.replaceState(null, "", path);
-  }, []);
+    if (fromHash) {
+      setAccessCode(fromHash.trim());
+      setAccessFromQrLink(true);
+      const path = window.location.pathname + window.location.search;
+      window.history.replaceState(null, "", path);
+    }
+    setPhase("codes");
+  }, [publicId]);
+
+  function persistVoteOutcome(outcome: "done" | "already") {
+    try {
+      localStorage.setItem(voteStorageKey(publicId), outcome);
+    } catch {
+      /* ignorar */
+    }
+  }
 
   async function onVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +105,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setLoading(false);
     if (!r.ok) {
       if (r.code === "already_voted") {
+        persistVoteOutcome("already");
         setPhase("already");
         setMessage(r.message);
         return;
@@ -106,13 +134,26 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setLoading(false);
     if (!r.ok) {
       if (r.message?.includes("Ya has votado")) {
+        persistVoteOutcome("already");
         setPhase("already");
       }
       setMessage(r.message ?? "Error");
       return;
     }
+    persistVoteOutcome("done");
     setPhase("done");
     setMessage(r.message);
+  }
+
+  if (phase === "hydrating") {
+    return (
+      <div
+        className="flex min-h-[100px] items-center justify-center text-sm text-zinc-500"
+        aria-busy="true"
+      >
+        Cargando…
+      </div>
+    );
   }
 
   if (phase === "already") {
