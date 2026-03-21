@@ -2,14 +2,18 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { assistants, questions, votes } from "@/db/schema";
 import type { QuestionType } from "@/db/schema";
-import { hashAssistantVotingCode, normalizeVotingCode } from "@/lib/codes";
+import {
+  getAssistantVotingCodeSecret,
+  hashAssistantVotingCode,
+  normalizeVotingCode,
+} from "@/lib/codes";
 import { isValidChoice } from "@/lib/question-defaults";
 
 function getVotingSecret(): string {
-  const s = process.env.ASSISTANT_VOTING_CODE_SECRET ?? process.env.AUTH_SECRET;
+  const s = getAssistantVotingCodeSecret();
   if (!s) {
     throw new Error(
-      "Defina ASSISTANT_VOTING_CODE_SECRET o AUTH_SECRET para códigos de asistente"
+      "Defina AUTH_SECRET, NEXTAUTH_SECRET o ASSISTANT_VOTING_CODE_SECRET para códigos de asistente"
     );
   }
   return s;

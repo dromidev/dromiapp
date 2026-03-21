@@ -1,5 +1,15 @@
 import { createHmac, randomBytes } from "crypto";
 
+/** Mismo orden que NextAuth en este repo: CSV y votación usan el primer valor definido. */
+export function getAssistantVotingCodeSecret(): string | undefined {
+  const a = process.env.ASSISTANT_VOTING_CODE_SECRET?.trim();
+  if (a) return a;
+  const b = process.env.AUTH_SECRET?.trim();
+  if (b) return b;
+  const c = process.env.NEXTAUTH_SECRET?.trim();
+  return c || undefined;
+}
+
 export function normalizeVotingCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+/g, "");
 }

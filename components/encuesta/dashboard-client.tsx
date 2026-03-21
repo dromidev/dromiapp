@@ -133,6 +133,13 @@ export function DashboardClient({
     title: string;
   } | null>(null);
 
+  const [assistantsCsvImport, setAssistantsCsvImport] = useState<
+    | { phase: "idle" }
+    | { phase: "uploading" }
+    | { phase: "success"; imported: number }
+    | { phase: "error"; message: string }
+  >({ phase: "idle" });
+
   const activeMeeting = useMemo(
     () => meetings.find((m) => m.id === meetingId),
     [meetings, meetingId]
@@ -334,21 +341,23 @@ export function DashboardClient({
   async function onImportCsv(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!meetingId) {
-      setToast("Selecciona una asamblea en la pestaña Asamblea");
+      setAssistantsCsvImport({
+        phase: "error",
+        message:
+          "Selecciona una asamblea en la pestaña Asamblea antes de importar.",
+      });
       return;
     }
     const form = e.currentTarget;
     const fd = new FormData(form);
     fd.set("meetingId", meetingId);
-    setBusy(true);
-    setToast(null);
+    setAssistantsCsvImport({ phase: "uploading" });
     const r = await importAssistantsCsvAction(fd);
-    setBusy(false);
     if (!r.ok) {
-      setToast(r.error);
+      setAssistantsCsvImport({ phase: "error", message: r.error });
       return;
     }
-    setToast(`Importados: ${r.imported} asistentes`);
+    setAssistantsCsvImport({ phase: "success", imported: r.imported });
     form.reset();
   }
 
@@ -965,17 +974,56 @@ export function DashboardClient({
               <h2 className="text-base font-semibold text-white">
                 Importar asistentes (CSV)
               </h2>
-              <p className="mt-2 text-sm text-zinc-500">
-                Columnas: <strong>Unidad</strong> (torre+apartamento en un solo
-                valor, ej. 38503), o bien <strong>Torre</strong> y{" "}
-                <strong>Apto</strong> por separado (se unen sin espacio), más{" "}
-                <strong>Nombre</strong> y el{" "}
-                <strong>código único de votación</strong> (p. ej.{" "}
-                <span className="font-mono text-zinc-400">
-                  Codigo de Votacion
-                </span>
-                ). Una fila por unidad. Asamblea activa.
-              </p>
+              <div className="mt-3 rounded-xl border border-zinc-700 bg-zinc-950/50 p-4">
+                <p className="text-sm font-medium text-zinc-200">
+                  Plantilla y formato
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Descarga el archivo de ejemplo, edítalo en Excel o similar y
+                  súbelo aquí. <strong>Una fila = una unidad.</strong> El código
+                  de votación es el que entregarás a cada copropietario.
+                </p>
+                <a
+                  href="/plantilla-asistentes.csv"
+                  download="plantilla-asistentes.csv"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#00C9A7]/50 bg-[#00C9A7]/10 px-3 py-2 text-sm font-medium text-[#00C9A7] transition hover:bg-[#00C9A7]/20"
+                >
+                  Descargar plantilla CSV
+                </a>
+                <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/80">
+                  <table className="w-full min-w-[320px] text-left text-xs text-zinc-300">
+                    <thead>
+                      <tr className="border-b border-zinc-700 text-zinc-500">
+                        <th className="px-3 py-2 font-medium">Unidad</th>
+                        <th className="px-3 py-2 font-medium">Nombre</th>
+                        <th className="px-3 py-2 font-medium">
+                          Codigo de Votacion
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono text-[11px] text-zinc-400">
+                      <tr className="border-b border-zinc-800/80">
+                        <td className="px-3 py-2">38503</td>
+                        <td className="px-3 py-2">Ejemplo copropietario 1</td>
+                        <td className="px-3 py-2">CODE001</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2">38504</td>
+                        <td className="px-3 py-2">Ejemplo copropietario 2</td>
+                        <td className="px-3 py-2">CODE002</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-xs text-zinc-600">
+                  <strong>Unidad:</strong> torre y apartamento en un solo valor
+                  (ej. 38 + 503 → 38503). También puedes usar columnas separadas{" "}
+                  <span className="font-mono text-zinc-500">Torre</span> y{" "}
+                  <span className="font-mono text-zinc-500">Apto</span> en lugar
+                  de Unidad. Los encabezados deben contener esas palabras clave
+                  para que el sistema los reconozca.
+                </p>
+              </div>
               <form onSubmit={onImportCsv} className="mt-4 space-y-3">
                 <input type="hidden" name="meetingId" value={meetingId} />
                 <input
@@ -984,15 +1032,86 @@ export function DashboardClient({
                   name="file"
                   accept=".csv,text/csv"
                   className="block text-sm text-zinc-300"
+                  onChange={() => setAssistantsCsvImport({ phase: "idle" })}
                 />
                 <button
                   type="submit"
-                  disabled={busy || !meetingId}
+                  disabled={
+                    assistantsCsvImport.phase === "uploading" || !meetingId
+                  }
                   className="rounded-lg bg-[#00C9A7] px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
                 >
-                  Subir CSV
+                  {assistantsCsvImport.phase === "uploading"
+                    ? "Subiendo…"
+                    : "Subir CSV"}
                 </button>
               </form>
+
+              {assistantsCsvImport.phase === "uploading" ? (
+                <div
+                  className="mt-5 rounded-xl border border-zinc-700 bg-zinc-900/60 p-4"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p className="text-sm font-medium text-zinc-200">
+                    Procesando CSV…
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Enviando archivo y guardando asistentes en la base de datos.
+                  </p>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className="assistants-csv-progress-bar h-full rounded-full bg-[#00C9A7]"
+                      aria-hidden
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {assistantsCsvImport.phase === "success" ? (
+                <div
+                  className="mt-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4"
+                  role="status"
+                >
+                  <p className="text-sm font-semibold text-emerald-100">
+                    Importación completada correctamente
+                  </p>
+                  <p className="mt-2 text-sm text-emerald-200/90">
+                    Se registraron{" "}
+                    <strong>{assistantsCsvImport.imported}</strong> asistente
+                    {assistantsCsvImport.imported === 1 ? "" : "s"} en la
+                    asamblea seleccionada.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAssistantsCsvImport({ phase: "idle" })}
+                    className="mt-3 text-xs font-medium text-emerald-300 underline-offset-2 hover:underline"
+                  >
+                    Cerrar aviso
+                  </button>
+                </div>
+              ) : null}
+
+              {assistantsCsvImport.phase === "error" ? (
+                <div
+                  className="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4"
+                  role="alert"
+                >
+                  <p className="text-sm font-semibold text-red-100">
+                    No se pudo importar el CSV
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-red-200/90">
+                    {assistantsCsvImport.message}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAssistantsCsvImport({ phase: "idle" })}
+                    className="mt-3 text-xs font-medium text-red-300 underline-offset-2 hover:underline"
+                  >
+                    Cerrar aviso
+                  </button>
+                </div>
+              ) : null}
             </section>
           ) : null}
         </main>

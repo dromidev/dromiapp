@@ -42,7 +42,7 @@ Si tras el deploy ves **“Application error: a server-side exception…”**, c
 |----------|------------------|
 | `DATABASE_URL` | URI del pooler **6543** (transacción) de Supabase |
 | `DASHBOARD_USER_ID` o `SEED_ADMIN_EMAIL` | Usuario del panel (fila en `public.users`) |
-| `AUTH_SECRET` o `NEXTAUTH_SECRET` | CSV / legacy; genera: `openssl rand -base64 32` |
+| `AUTH_SECRET` y `NEXTAUTH_SECRET` | **Mismo valor** en Vercel (CSV + votación). Genera uno: `npm run auth:secret` y pégalo en ambas variables |
 | `NEXTAUTH_URL` | **`https://encuesta.dromi.lat`** si usas rutas NextAuth |
 | `NEXT_PUBLIC_ENCUESTA_ORIGIN` | `https://encuesta.dromi.lat` (QR y enlaces públicos) |
 

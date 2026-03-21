@@ -9,7 +9,11 @@ import {
   questions,
   type QuestionType,
 } from "@/db/schema";
-import { generateAccessCode, hashAssistantVotingCode } from "@/lib/codes";
+import {
+  generateAccessCode,
+  getAssistantVotingCodeSecret,
+  hashAssistantVotingCode,
+} from "@/lib/codes";
 import { defaultOptionsForType } from "@/lib/question-defaults";
 import { aggregateResults } from "@/lib/vote-service";
 import { getMeetingExportPayload } from "@/lib/meeting-export";
@@ -424,12 +428,12 @@ export async function importAssistantsCsvAction(formData: FormData) {
     return t;
   }
 
-  const secret =
-    process.env.ASSISTANT_VOTING_CODE_SECRET ?? process.env.AUTH_SECRET;
+  const secret = getAssistantVotingCodeSecret();
   if (!secret) {
     return {
       ok: false as const,
-      error: "Falta ASSISTANT_VOTING_CODE_SECRET o AUTH_SECRET en el servidor",
+      error:
+        "Falta un secreto en el servidor para los códigos de votación. En Vercel (o tu hosting) define AUTH_SECRET o NEXTAUTH_SECRET (o ASSISTANT_VOTING_CODE_SECRET) y vuelve a desplegar.",
     };
   }
 
