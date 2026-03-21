@@ -152,6 +152,53 @@ export async function deleteMeetingAction(meetingId: string) {
   return { ok: true as const };
 }
 
+const updateMeetingSchema = z.object({
+  meetingId: z.string().uuid(),
+  title: z.string().min(1).max(500),
+  meetingDate: z.string().min(1),
+});
+
+export async function updateMeetingAction(formData: FormData) {
+  const userId = await getDashboardUserId();
+  if (!userId) {
+    return { ok: false as const, error: "No autenticado" };
+  }
+  const raw = {
+    meetingId: String(formData.get("meetingId") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    meetingDate: String(formData.get("meetingDate") ?? ""),
+  };
+  const parsed = updateMeetingSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false as const, error: "Datos inválidos" };
+  }
+  const d = new Date(parsed.data.meetingDate);
+  if (Number.isNaN(d.getTime())) {
+    return { ok: false as const, error: "Fecha inválida" };
+  }
+
+  const updated = await db
+    .update(meetings)
+    .set({
+      title: parsed.data.title.trim(),
+      meetingDate: d,
+    })
+    .where(
+      and(
+        eq(meetings.id, parsed.data.meetingId),
+        eq(meetings.createdByUserId, userId)
+      )
+    )
+    .returning({ id: meetings.id });
+
+  if (updated.length === 0) {
+    return { ok: false as const, error: "Asamblea no encontrada" };
+  }
+
+  revalidatePath("/dashboard");
+  return { ok: true as const };
+}
+
 const questionSchema = z.object({
   meetingId: z.string().uuid(),
   title: z.string().min(1).max(1000),

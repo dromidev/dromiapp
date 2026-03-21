@@ -1,5 +1,6 @@
 "use client";
 
+import { ResultsChartTooltip } from "@/components/encuesta/recharts-results-tooltip";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -106,23 +107,37 @@ export function ProjectionClient({ publicId }: { publicId: string }) {
 
         <div className="mt-14 h-[min(52vh,520px)] w-full rounded-2xl border border-white/10 bg-black/20 p-6">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={live.breakdown}>
+            <BarChart
+              data={live.breakdown}
+              barCategoryGap="22%"
+              margin={{ top: 10, right: 12, left: 6, bottom: 10 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis
                 dataKey="label"
                 stroke="#a1a1aa"
                 tick={{ fill: "#e4e4e7", fontSize: 14 }}
+                interval={0}
               />
-              <YAxis stroke="#a1a1aa" allowDecimals={false} tick={{ fill: "#e4e4e7" }} />
-              <Tooltip
-                contentStyle={{
-                  background: "#09090b",
-                  border: "1px solid #3f3f46",
-                  fontSize: 14,
+              <YAxis
+                stroke="#a1a1aa"
+                allowDecimals={false}
+                tick={{ fill: "#e4e4e7" }}
+                domain={[0, "auto"]}
+              />
+              <Tooltip cursor={false} content={<ResultsChartTooltip />} />
+              <Bar
+                dataKey="count"
+                maxBarSize={52}
+                minPointSize={14}
+                radius={[6, 6, 0, 0]}
+                isAnimationActive={false}
+                activeBar={{
+                  fill: "rgba(255,255,255,0.14)",
+                  stroke: "#d4d4d8",
+                  strokeWidth: 1,
                 }}
-                labelStyle={{ color: "#fafafa" }}
-              />
-              <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+              >
                 {live.breakdown.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}

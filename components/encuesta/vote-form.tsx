@@ -146,7 +146,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
   if (phase === "hydrating") {
     return (
       <div
-        className="flex min-h-[100px] items-center justify-center text-sm text-zinc-500"
+        className="flex min-h-[120px] w-full items-center justify-center px-2 text-center text-sm text-zinc-500"
         aria-busy="true"
       >
         Cargando…
@@ -169,7 +169,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
         <button
           type="button"
           onClick={resetForAnotherAssistant}
-          className="mt-6 w-full rounded-lg border border-amber-400/50 bg-amber-950/40 px-4 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-950/70"
+          className="mx-auto mt-6 w-full max-w-xs rounded-lg border border-amber-400/50 bg-amber-950/40 px-4 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-950/70"
         >
           Ingresar otro código
         </button>
@@ -182,7 +182,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
 
   if (phase === "done") {
     return (
-      <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-6 text-center">
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center sm:p-6">
         <p className="text-lg font-medium text-emerald-100">
           Voto registrado exitosamente
         </p>
@@ -194,7 +194,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
         <button
           type="button"
           onClick={resetForAnotherAssistant}
-          className="mt-4 w-full rounded-lg border border-emerald-400/50 bg-emerald-950/40 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-950/70"
+          className="mx-auto mt-4 w-full max-w-xs rounded-lg border border-emerald-400/50 bg-emerald-950/40 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-950/70"
         >
           Ingresar otro código
         </button>
@@ -207,28 +207,32 @@ export function VoteForm({ publicId }: { publicId: string }) {
 
   if (phase === "vote" && question) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-white">{question.title}</h2>
+      <div className="mx-auto w-full max-w-lg space-y-6 px-0">
+        <div className="text-center">
+          <h2 className="text-balance text-xl font-semibold text-white sm:text-2xl">
+            {question.title}
+          </h2>
           {question.description ? (
-            <p className="mt-2 text-sm text-zinc-400">{question.description}</p>
+            <p className="mt-2 text-pretty text-sm text-zinc-400 sm:text-base">
+              {question.description}
+            </p>
           ) : null}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {choices.map((c) => (
             <button
               key={c}
               type="button"
               disabled={loading}
               onClick={() => onVote(c)}
-              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-left text-sm font-medium text-white transition hover:border-[#1E6FFF] hover:bg-zinc-800 disabled:opacity-50"
+              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-center text-sm font-medium text-white transition hover:border-[#1E6FFF] hover:bg-zinc-800 disabled:opacity-50 sm:text-base"
             >
               {c}
             </button>
           ))}
         </div>
         {message ? (
-          <p className="text-sm text-red-400" role="alert">
+          <p className="text-center text-sm text-red-400" role="alert">
             {message}
           </p>
         ) : null}
@@ -237,15 +241,18 @@ export function VoteForm({ publicId }: { publicId: string }) {
   }
 
   return (
-    <form onSubmit={onVerify} className="space-y-5">
-      <div>
+    <form
+      onSubmit={onVerify}
+      className="mx-auto flex w-full max-w-lg flex-col items-center gap-5 px-1 sm:px-2"
+    >
+      <div className="w-full max-w-[17.5rem] space-y-1 sm:max-w-xs">
         <label
           htmlFor="assistant-code"
-          className="block text-sm font-medium text-zinc-200"
+          className="block text-center text-sm font-medium leading-snug text-zinc-200"
         >
           Código que te entregó la administración
         </label>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="text-balance px-0.5 text-center text-xs leading-relaxed text-zinc-500">
           Es el código de tu unidad o copropietario para esta votación.
         </p>
         <input
@@ -254,19 +261,23 @@ export function VoteForm({ publicId }: { publicId: string }) {
           onChange={(e) => setAssistantCode(e.target.value)}
           required
           autoComplete="off"
-          className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none ring-[#1E6FFF]/40 focus:ring-2"
+          inputMode="text"
+          className="mx-auto mt-3 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-center text-sm text-white outline-none ring-[#1E6FFF]/40 focus:ring-2 sm:py-2"
           placeholder=""
         />
       </div>
       {message ? (
-        <p className="text-sm text-red-400" role="alert">
+        <p
+          className="max-w-sm px-2 text-center text-sm text-red-400"
+          role="alert"
+        >
           {message}
         </p>
       ) : null}
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-[#1E6FFF] py-2.5 text-sm font-medium text-white transition hover:bg-[#185dcc] disabled:opacity-60"
+        className="w-full max-w-[17.5rem] rounded-lg bg-[#1E6FFF] py-2.5 text-sm font-medium text-white transition hover:bg-[#185dcc] disabled:opacity-60 sm:max-w-xs"
       >
         {loading ? "Verificando…" : "Continuar"}
       </button>

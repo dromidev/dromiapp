@@ -9,17 +9,24 @@ import {
   importAssistantsCsvAction,
   listQuestionsForMeetingAction,
   toggleQuestionOpenAction,
+  updateMeetingAction,
 } from "@/app/(encuesta)/actions";
+import {
+  PieResultsSectorLabel,
+  ResultsChartTooltip,
+} from "@/components/encuesta/recharts-results-tooltip";
 import { questions as questionsTable } from "@/db/schema";
 import {
   BarChart3,
   Building2,
   CirclePlus,
   FileDown,
+  Loader2,
+  Pencil,
   Trash2,
   UserPlus,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -96,12 +103,25 @@ function dateInputToMeetingDateTime(isoDate: string): string {
   return isoDate;
 }
 
+/** Valor para `<input type="date">` a partir del ISO guardado en el cliente. */
+function meetingDateIsoToDateInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
 function QrPresentationLink({
   publicId,
   className = "",
+  label = "Abrir en pantalla completa (videobeam)",
 }: {
   publicId: string;
   className?: string;
+  /** Texto del enlace; en Resultados se usa copia específica para el QR. */
+  label?: string;
 }) {
   return (
     <a
@@ -110,7 +130,7 @@ function QrPresentationLink({
       rel="noopener noreferrer"
       className={`text-sm font-medium text-emerald-300 underline-offset-2 hover:text-emerald-200 hover:underline ${className}`}
     >
-      Abrir en pantalla completa (videobeam)
+      {label}
     </a>
   );
 }
@@ -134,11 +154,16 @@ export function DashboardClient({
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [selectedQ, setSelectedQ] = useState<string>("");
   const [live, setLive] = useState<LiveResults | null>(null);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const selectedPublicIdRef = useRef("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const [newMeetingTitle, setNewMeetingTitle] = useState("");
   const [newMeetingDate, setNewMeetingDate] = useState("");
+  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+  const [editMeetingTitle, setEditMeetingTitle] = useState("");
+  const [editMeetingDate, setEditMeetingDate] = useState("");
 
   const [qTitle, setQTitle] = useState("");
   const [qDesc, setQDesc] = useState("");
@@ -198,19 +223,35 @@ export function DashboardClient({
     return q?.publicId ?? "";
   }, [questions, selectedQ]);
 
-  const fetchLive = useCallback(async () => {
-    await Promise.resolve();
-    if (!selectedPublicId) {
-      setLive(null);
-      return;
-    }
-    const res = await fetch(`/api/questions/${selectedPublicId}/results`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return;
-    const j = (await res.json()) as LiveResults;
-    setLive(j);
-  }, [selectedPublicId]);
+  selectedPublicIdRef.current = selectedPublicId;
+
+  const fetchLive = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const pid = selectedPublicId;
+      if (!pid) {
+        setLive(null);
+        setResultsLoading(false);
+        return;
+      }
+      const silent = opts?.silent ?? false;
+      if (!silent) setResultsLoading(true);
+      try {
+        const res = await fetch(`/api/questions/${pid}/results`, {
+          cache: "no-store",
+        });
+        if (selectedPublicIdRef.current !== pid) return;
+        if (!res.ok) return;
+        const j = (await res.json()) as LiveResults;
+        if (selectedPublicIdRef.current !== pid) return;
+        setLive(j);
+      } finally {
+        if (!silent && selectedPublicIdRef.current === pid) {
+          setResultsLoading(false);
+        }
+      }
+    },
+    [selectedPublicId]
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- setState tras fetch en fetchLive
@@ -220,7 +261,7 @@ export function DashboardClient({
   useEffect(() => {
     if (tab !== "results" || !selectedPublicId) return;
     const id = window.setInterval(() => {
-      void fetchLive();
+      void fetchLive({ silent: true });
     }, 2500);
     return () => window.clearInterval(id);
   }, [tab, selectedPublicId, fetchLive]);
@@ -263,6 +304,8 @@ export function DashboardClient({
     );
     if (!ok) return;
 
+    if (editingMeetingId === id) cancelEditMeeting();
+
     setBusy(true);
     setToast(null);
     const r = await deleteMeetingAction(id);
@@ -278,6 +321,57 @@ export function DashboardClient({
       setMeetingId(nextList[0]?.id ?? "");
     }
     setToast("Asamblea eliminada");
+  }
+
+  function startEditMeeting(m: MeetingRow) {
+    setEditingMeetingId(m.id);
+    setEditMeetingTitle(m.title);
+    setEditMeetingDate(meetingDateIsoToDateInput(m.meetingDate));
+    setToast(null);
+  }
+
+  function cancelEditMeeting() {
+    setEditingMeetingId(null);
+    setEditMeetingTitle("");
+    setEditMeetingDate("");
+  }
+
+  async function onSaveMeetingEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingMeetingId) return;
+    const titleTrim = editMeetingTitle.trim();
+    if (!titleTrim) {
+      setToast("El título no puede estar vacío");
+      return;
+    }
+    if (!editMeetingDate) {
+      setToast("Indica la fecha de la asamblea");
+      return;
+    }
+    setBusy(true);
+    setToast(null);
+    const fd = new FormData();
+    fd.set("meetingId", editingMeetingId);
+    fd.set("title", editMeetingTitle);
+    fd.set("meetingDate", dateInputToMeetingDateTime(editMeetingDate));
+    const r = await updateMeetingAction(fd);
+    setBusy(false);
+    if (!r.ok) {
+      setToast(r.error);
+      return;
+    }
+    const nextIso = new Date(
+      dateInputToMeetingDateTime(editMeetingDate)
+    ).toISOString();
+    setMeetings((prev) =>
+      prev.map((m) =>
+        m.id === editingMeetingId
+          ? { ...m, title: titleTrim, meetingDate: nextIso }
+          : m
+      )
+    );
+    cancelEditMeeting();
+    setToast("Asamblea actualizada");
   }
 
   async function loadQuestionQr(publicId: string, title: string) {
@@ -531,7 +625,8 @@ export function DashboardClient({
                   Tus asambleas
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Elige cuál usar para preguntas, CSV y exportación. Al borrar una
+                  Elige cuál usar para preguntas, CSV y exportación. Usa el lápiz
+                  para cambiar el nombre o la fecha sin perder datos. Al borrar una
                   asamblea se eliminan sus preguntas, asistentes y votos.
                 </p>
                 {meetings.length === 0 ? (
@@ -543,6 +638,7 @@ export function DashboardClient({
                     {meetings.map((m) => {
                       const fecha = formatMeetingCalendarDate(m.meetingDate);
                       const selected = m.id === meetingId;
+                      const isEditing = editingMeetingId === m.id;
                       return (
                         <li
                           key={m.id}
@@ -552,26 +648,89 @@ export function DashboardClient({
                               : "border-zinc-700 bg-zinc-950/50 hover:border-zinc-600"
                           }`}
                         >
+                          {isEditing ? (
+                            <form
+                              onSubmit={onSaveMeetingEdit}
+                              className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                value={editMeetingTitle}
+                                onChange={(e) =>
+                                  setEditMeetingTitle(e.target.value)
+                                }
+                                className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-white"
+                                placeholder="Título de la asamblea"
+                                aria-label="Título de la asamblea"
+                              />
+                              <div>
+                                <label className="text-xs font-medium text-zinc-500">
+                                  Fecha (día, mes y año)
+                                </label>
+                                <input
+                                  type="date"
+                                  value={editMeetingDate}
+                                  onChange={(e) =>
+                                    setEditMeetingDate(e.target.value)
+                                  }
+                                  className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-white"
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="submit"
+                                  disabled={busy}
+                                  className="rounded-lg bg-[#00C9A7] px-3 py-1.5 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                                >
+                                  Guardar
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={cancelEditMeeting}
+                                  className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setMeetingId(m.id)}
+                              className="min-w-0 flex-1 px-4 py-3 text-left"
+                            >
+                              <p className="font-medium text-white">{m.title}</p>
+                              {fecha ? (
+                                <p className="mt-0.5 text-xs text-zinc-500">
+                                  {fecha}
+                                </p>
+                              ) : null}
+                              {selected ? (
+                                <p className="mt-1 text-xs font-medium text-[#1E6FFF]">
+                                  Activa
+                                </p>
+                              ) : null}
+                            </button>
+                          )}
+                          {!isEditing ? (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              title="Editar nombre y fecha"
+                              aria-label={`Editar asamblea ${m.title}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditMeeting(m);
+                              }}
+                              className="shrink-0 border-l border-zinc-700/80 px-3 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+                            >
+                              <Pencil {...ICON} className="h-5 w-5" />
+                            </button>
+                          ) : null}
                           <button
                             type="button"
-                            onClick={() => setMeetingId(m.id)}
-                            className="min-w-0 flex-1 px-4 py-3 text-left"
-                          >
-                            <p className="font-medium text-white">{m.title}</p>
-                            {fecha ? (
-                              <p className="mt-0.5 text-xs text-zinc-500">
-                                {fecha}
-                              </p>
-                            ) : null}
-                            {selected ? (
-                              <p className="mt-1 text-xs font-medium text-[#1E6FFF]">
-                                Activa
-                              </p>
-                            ) : null}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
+                            disabled={busy || isEditing}
                             title="Borrar asamblea"
                             aria-label={`Borrar asamblea ${m.title}`}
                             onClick={(e) => {
@@ -662,6 +821,7 @@ export function DashboardClient({
                     <QrPresentationLink
                       publicId={selectedPublicId}
                       className="basis-full mt-1"
+                      label="Abrir QR en pantalla completa"
                     />
                   ) : null}
                 </div>
@@ -696,122 +856,201 @@ export function DashboardClient({
                   <QrPresentationLink
                     publicId={questionQr.publicId}
                     className="mt-3 block text-center"
+                    label="Abrir QR en pantalla completa"
                   />
                 </div>
               ) : null}
 
-              {live && selectedQuestionRow ? (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                    <h3 className="text-sm font-medium text-zinc-400">
-                      Participación
-                    </h3>
-                    <p className="mt-2 text-4xl font-semibold text-white">
-                      {live.participation.participationPercent}%
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {live.participation.votedCount} de{" "}
-                      {live.participation.totalAssistants} asistentes registrados
-                      han votado
-                    </p>
-                    <p className="mt-4 text-xs text-zinc-500">
-                      Estado:{" "}
-                      <span
+              {selectedQuestionRow ? (
+                <div className="relative min-h-[320px]">
+                  {live ? (
+                    <>
+                      <div
                         className={
-                          live.question.isOpen
-                            ? "text-emerald-400"
-                            : "text-amber-400"
+                          resultsLoading
+                            ? "pointer-events-none blur-[3px] transition-[filter,opacity] duration-200"
+                            : undefined
                         }
                       >
-                        {live.question.isOpen ? "Abierta" : "Cerrada"}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                    <h3 className="text-sm font-medium text-zinc-400">Resumen</h3>
-                    <p className="mt-2 text-lg text-white">{live.question.title}</p>
-                    <p className="mt-2 text-sm text-zinc-500">
-                      Total votos: {live.total}
-                      {live.winner && !live.tie ? (
-                        <span className="ml-2 text-emerald-400">
-                          Ganador: {live.winner}
-                        </span>
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                            <h3 className="text-sm font-medium text-zinc-400">
+                              Participación
+                            </h3>
+                            <p className="mt-2 text-4xl font-semibold text-white">
+                              {live.participation.participationPercent}%
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {live.participation.votedCount} de{" "}
+                              {live.participation.totalAssistants} asistentes
+                              registrados han votado
+                            </p>
+                            <p className="mt-4 text-xs text-zinc-500">
+                              Estado:{" "}
+                              <span
+                                className={
+                                  live.question.isOpen
+                                    ? "text-emerald-400"
+                                    : "text-amber-400"
+                                }
+                              >
+                                {live.question.isOpen ? "Abierta" : "Cerrada"}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                            <h3 className="text-sm font-medium text-zinc-400">
+                              Resumen
+                            </h3>
+                            <p className="mt-2 text-lg text-white">
+                              {live.question.title}
+                            </p>
+                            <p className="mt-2 text-sm text-zinc-500">
+                              Total votos: {live.total}
+                              {live.winner && !live.tie ? (
+                                <span className="ml-2 text-emerald-400">
+                                  Ganador: {live.winner}
+                                </span>
+                              ) : null}
+                              {live.tie ? (
+                                <span className="ml-2 text-amber-400">
+                                  Empate
+                                </span>
+                              ) : null}
+                            </p>
+                          </div>
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                            <h3 className="mb-4 text-sm font-medium text-zinc-400">
+                              Gráfico de barras
+                            </h3>
+                            <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={live.breakdown}
+                                  barCategoryGap="22%"
+                                  margin={{ top: 8, right: 8, left: 4, bottom: 8 }}
+                                >
+                                  <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke="#27272a"
+                                  />
+                                  <XAxis
+                                    dataKey="label"
+                                    stroke="#a1a1aa"
+                                    tick={{ fontSize: 11 }}
+                                    interval={0}
+                                  />
+                                  <YAxis
+                                    stroke="#a1a1aa"
+                                    allowDecimals={false}
+                                    domain={[0, "auto"]}
+                                  />
+                                  <Tooltip
+                                    cursor={false}
+                                    content={<ResultsChartTooltip />}
+                                  />
+                                  <Bar
+                                    dataKey="count"
+                                    maxBarSize={48}
+                                    minPointSize={14}
+                                    radius={[5, 5, 0, 0]}
+                                    isAnimationActive={false}
+                                    activeBar={{
+                                      fill: "rgba(255,255,255,0.14)",
+                                      stroke: "#d4d4d8",
+                                      strokeWidth: 1,
+                                    }}
+                                  >
+                                    {live.breakdown.map((_, i) => (
+                                      <Cell
+                                        key={i}
+                                        fill={COLORS[i % COLORS.length]}
+                                      />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+                            <h3 className="mb-4 text-sm font-medium text-zinc-400">
+                              Gráfico circular
+                            </h3>
+                            <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart margin={{ top: 24, right: 48, bottom: 24, left: 48 }}>
+                                  <Pie
+                                    data={live.breakdown}
+                                    dataKey="count"
+                                    nameKey="label"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={0}
+                                    outerRadius="62%"
+                                    paddingAngle={0}
+                                    isAnimationActive={false}
+                                    animationDuration={0}
+                                    labelLine={{
+                                      stroke: "#a1a1aa",
+                                      strokeWidth: 1,
+                                    }}
+                                    label={PieResultsSectorLabel}
+                                  >
+                                    {live.breakdown.map((_, i) => (
+                                      <Cell
+                                        key={i}
+                                        fill={COLORS[i % COLORS.length]}
+                                      />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    content={<ResultsChartTooltip />}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {resultsLoading ? (
+                        <div
+                          className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-zinc-950/35 backdrop-blur-sm"
+                          aria-busy="true"
+                          aria-live="polite"
+                        >
+                          <div className="flex flex-col items-center gap-3 rounded-xl border border-zinc-600 bg-zinc-900/95 px-10 py-8 shadow-2xl">
+                            <Loader2
+                              className="h-9 w-9 animate-spin text-[#1E6FFF]"
+                              aria-hidden
+                            />
+                            <p className="text-sm font-medium text-white">
+                              Cargando resultados
+                            </p>
+                          </div>
+                        </div>
                       ) : null}
-                      {live.tie ? (
-                        <span className="ml-2 text-amber-400">Empate</span>
-                      ) : null}
+                    </>
+                  ) : resultsLoading ? (
+                    <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-sm">
+                      <Loader2
+                        className="h-9 w-9 animate-spin text-[#1E6FFF]"
+                        aria-hidden
+                      />
+                      <p className="text-sm font-medium text-white">
+                        Cargando resultados
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      Cargando resultados…
                     </p>
-                  </div>
-                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                    <h3 className="mb-4 text-sm font-medium text-zinc-400">
-                      Gráfico de barras
-                    </h3>
-                    <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={live.breakdown}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis
-                            dataKey="label"
-                            stroke="#a1a1aa"
-                            tick={{ fontSize: 11 }}
-                          />
-                          <YAxis stroke="#a1a1aa" allowDecimals={false} />
-                          <Tooltip
-                            contentStyle={{
-                              background: "#18181b",
-                              border: "1px solid #3f3f46",
-                            }}
-                            labelStyle={{ color: "#fafafa" }}
-                          />
-                          <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                            {live.breakdown.map((_, i) => (
-                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                  <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                    <h3 className="mb-4 text-sm font-medium text-zinc-400">
-                      Gráfico circular
-                    </h3>
-                    <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={live.breakdown}
-                            dataKey="count"
-                            nameKey="label"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius="75%"
-                            label={(props) => {
-                              const name = String(props.name ?? "");
-                              const pct = Number(props.percent ?? 0) * 100;
-                              return `${name}: ${pct.toFixed(0)}%`;
-                            }}
-                          >
-                            {live.breakdown.map((_, i) => (
-                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{
-                              background: "#18181b",
-                              border: "1px solid #3f3f46",
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-zinc-500">
                   {questions.length === 0
                     ? "Crea una pregunta en la pestaña Crear pregunta."
-                    : "Cargando resultados…"}
+                    : "Selecciona una pregunta para ver los resultados."}
                 </p>
               )}
             </section>
