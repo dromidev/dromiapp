@@ -7,8 +7,6 @@ import { submitVoteAction, verifyVoteSessionAction } from "@/app/(encuesta)/vote
 
 type Phase = "hydrating" | "codes" | "vote" | "done" | "already";
 
-const voteStorageKey = (publicId: string) => `dromi:vote:${publicId}`;
-
 function readAccessCodeFromHash(): string | null {
   if (typeof window === "undefined") return null;
   const raw = window.location.hash.replace(/^#/, "");
@@ -46,21 +44,6 @@ export function VoteForm({ publicId }: { publicId: string }) {
   }, [question]);
 
   useLayoutEffect(() => {
-    const key = voteStorageKey(publicId);
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved === "done") {
-        setPhase("done");
-        return;
-      }
-      if (saved === "already") {
-        setPhase("already");
-        return;
-      }
-    } catch {
-      /* modo privado / storage bloqueado */
-    }
-
     const fromHash = readAccessCodeFromHash();
     if (fromHash) {
       setAccessCode(fromHash.trim());
@@ -71,12 +54,12 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setPhase("codes");
   }, [publicId]);
 
-  function persistVoteOutcome(outcome: "done" | "already") {
-    try {
-      localStorage.setItem(voteStorageKey(publicId), outcome);
-    } catch {
-      /* ignorar */
-    }
+  /** Mismo dispositivo, otro copropietario: el servidor sigue impidiendo dos votos con el mismo código. */
+  function resetForAnotherAssistant() {
+    setAssistantCode("");
+    setQuestion(null);
+    setMessage(null);
+    setPhase("codes");
   }
 
   async function onVerify(e: React.FormEvent) {
@@ -105,9 +88,8 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setLoading(false);
     if (!r.ok) {
       if (r.code === "already_voted") {
-        persistVoteOutcome("already");
+        setMessage(null);
         setPhase("already");
-        setMessage(r.message);
         return;
       }
       setMessage(r.message);
@@ -134,15 +116,15 @@ export function VoteForm({ publicId }: { publicId: string }) {
     setLoading(false);
     if (!r.ok) {
       if (r.message?.includes("Ya has votado")) {
-        persistVoteOutcome("already");
+        setMessage(null);
         setPhase("already");
+        return;
       }
       setMessage(r.message ?? "Error");
       return;
     }
-    persistVoteOutcome("done");
     setPhase("done");
-    setMessage(r.message);
+    setMessage(null);
   }
 
   if (phase === "hydrating") {
@@ -159,9 +141,24 @@ export function VoteForm({ publicId }: { publicId: string }) {
   if (phase === "already") {
     return (
       <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-center">
-        <p className="text-lg font-medium text-amber-100">Ya has votado por esta pregunta</p>
+        <p className="text-lg font-medium text-amber-100">
+          Ese código ya votó en esta pregunta
+        </p>
         <p className="mt-2 text-sm text-amber-200/80">
-          Cada copropietario puede emitir un solo voto por votación.
+          Cada copropietario puede emitir un solo voto. Si otra persona usa este
+          mismo teléfono o computador, puede ingresar{" "}
+          <span className="font-medium text-amber-100">su</span> código de
+          copropietario.
+        </p>
+        <button
+          type="button"
+          onClick={resetForAnotherAssistant}
+          className="mt-6 w-full rounded-lg border border-amber-400/50 bg-amber-950/40 px-4 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-950/70"
+        >
+          Ingresar otro código
+        </button>
+        <p className="mt-3 text-xs text-amber-200/60">
+          También puedes actualizar la página para volver al formulario.
         </p>
       </div>
     );
@@ -174,6 +171,20 @@ export function VoteForm({ publicId }: { publicId: string }) {
           Voto registrado exitosamente
         </p>
         <p className="mt-2 text-sm text-emerald-200/80">Gracias por participar.</p>
+        <p className="mt-4 text-sm text-emerald-200/85">
+          ¿Otra persona votará con este mismo dispositivo? Ingresa el código que
+          le entregó la administración.
+        </p>
+        <button
+          type="button"
+          onClick={resetForAnotherAssistant}
+          className="mt-4 w-full rounded-lg border border-emerald-400/50 bg-emerald-950/40 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-950/70"
+        >
+          Ingresar otro código
+        </button>
+        <p className="mt-3 text-xs text-emerald-200/60">
+          También puedes actualizar la página.
+        </p>
       </div>
     );
   }
