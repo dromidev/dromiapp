@@ -116,8 +116,12 @@ export function ProjectionClient({ publicId }: { publicId: string }) {
               <XAxis
                 dataKey="label"
                 stroke="#a1a1aa"
-                tick={{ fill: "#e4e4e7", fontSize: 14 }}
+                tick={{ fill: "#e4e4e7", fontSize: 12 }}
                 interval={0}
+                angle={-32}
+                textAnchor="end"
+                height={80}
+                tickMargin={8}
               />
               <YAxis
                 stroke="#a1a1aa"

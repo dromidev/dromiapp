@@ -206,6 +206,9 @@ export function VoteForm({ publicId }: { publicId: string }) {
   }
 
   if (phase === "vote" && question) {
+    const noMcOptions =
+      question.type === "multiple_choice" && choices.length === 0;
+
     return (
       <div className="mx-auto w-full max-w-lg space-y-6 px-0">
         <div className="text-center">
@@ -218,19 +221,35 @@ export function VoteForm({ publicId }: { publicId: string }) {
             </p>
           ) : null}
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {choices.map((c) => (
-            <button
-              key={c}
-              type="button"
-              disabled={loading}
-              onClick={() => onVote(c)}
-              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-center text-sm font-medium text-white transition hover:border-[#1E6FFF] hover:bg-zinc-800 disabled:opacity-50 sm:text-base"
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        {noMcOptions ? (
+          <div
+            className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-center"
+            role="alert"
+          >
+            <p className="text-sm font-medium text-amber-100">
+              Esta pregunta no tiene opciones de respuesta configuradas.
+            </p>
+            <p className="mt-2 text-xs text-amber-200/80">
+              Quien creó la votación debe editar la pregunta en el panel o crearla
+              de nuevo con al menos dos opciones (por línea o separadas por coma).
+            </p>
+          </div>
+        ) : null}
+        {!noMcOptions ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {choices.map((c, idx) => (
+              <button
+                key={`${idx}-${c}`}
+                type="button"
+                disabled={loading}
+                onClick={() => onVote(c)}
+                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-center text-sm font-medium text-white transition hover:border-[#1E6FFF] hover:bg-zinc-800 disabled:opacity-50 sm:text-base"
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {message ? (
           <p className="text-center text-sm text-red-400" role="alert">
             {message}

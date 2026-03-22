@@ -27,6 +27,8 @@ export const getQuestionPresentationPayload = cache(
       .where(
         and(
           eq(questions.publicId, publicId),
+          eq(questions.isActive, true),
+          eq(meetings.isActive, true),
           eq(meetings.createdByUserId, userId)
         )
       )

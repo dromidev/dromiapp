@@ -3,13 +3,15 @@
 import {
   createMeetingAction,
   createQuestionAction,
-  deleteMeetingAction,
-  deleteQuestionAction,
+  deactivateMeetingAction,
+  deactivateQuestionAction,
   getQuestionQrDataUrlAction,
   importAssistantsCsvAction,
+  listMeetingVoteLogAction,
   listQuestionsForMeetingAction,
   toggleQuestionOpenAction,
   updateMeetingAction,
+  type MeetingVoteLogRow,
 } from "@/app/(encuesta)/actions";
 import {
   PieResultsSectorLabel,
@@ -17,13 +19,14 @@ import {
 } from "@/components/encuesta/recharts-results-tooltip";
 import { questions as questionsTable } from "@/db/schema";
 import {
+  Ban,
   BarChart3,
   Building2,
   CirclePlus,
   FileDown,
   Loader2,
   Pencil,
-  Trash2,
+  Table2,
   UserPlus,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,7 +51,13 @@ type MeetingRow = {
 
 type QuestionRow = typeof questionsTable.$inferSelect;
 
-type TabId = "meetings" | "results" | "create" | "export" | "assistants";
+type TabId =
+  | "meetings"
+  | "results"
+  | "voteLog"
+  | "create"
+  | "export"
+  | "assistants";
 
 type LiveResults = {
   question: {
@@ -81,6 +90,7 @@ const SIDEBAR_MAIN_NAV: {
   { id: "meetings", label: "Asamblea", Icon: Building2 },
   { id: "create", label: "Crear Preguntas", Icon: CirclePlus },
   { id: "results", label: "Resultados", Icon: BarChart3 },
+  { id: "voteLog", label: "Registro de votos", Icon: Table2 },
   { id: "assistants", label: "Asistentes", Icon: UserPlus },
 ];
 
@@ -184,6 +194,10 @@ export function DashboardClient({
     | { phase: "error"; message: string }
   >({ phase: "idle" });
 
+  const [voteLogRows, setVoteLogRows] = useState<MeetingVoteLogRow[]>([]);
+  const [voteLogLoading, setVoteLogLoading] = useState(false);
+  const [voteLogQuestionId, setVoteLogQuestionId] = useState("");
+
   const activeMeeting = useMemo(
     () => meetings.find((m) => m.id === meetingId),
     [meetings, meetingId]
@@ -193,10 +207,14 @@ export function DashboardClient({
     await Promise.resolve();
     if (!mid) {
       setQuestions([]);
+      setVoteLogQuestionId("");
       return;
     }
     const qs = await listQuestionsForMeetingAction(mid);
     setQuestions(qs);
+    setVoteLogQuestionId((prev) =>
+      prev && qs.some((q) => q.id === prev) ? prev : ""
+    );
     if (qs.length > 0) {
       setSelectedQ((prev) => {
         if (prev && qs.some((q) => q.id === prev)) return prev;
@@ -266,6 +284,31 @@ export function DashboardClient({
     return () => window.clearInterval(id);
   }, [tab, selectedPublicId, fetchLive]);
 
+  useEffect(() => {
+    setVoteLogQuestionId("");
+  }, [meetingId]);
+
+  useEffect(() => {
+    if (tab !== "voteLog" || !meetingId || !voteLogQuestionId) {
+      if (tab === "voteLog") {
+        setVoteLogRows([]);
+        setVoteLogLoading(false);
+      }
+      return;
+    }
+    let cancelled = false;
+    setVoteLogLoading(true);
+    void listMeetingVoteLogAction(meetingId, voteLogQuestionId).then((rows) => {
+      if (!cancelled) {
+        setVoteLogRows(rows);
+        setVoteLogLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, meetingId, voteLogQuestionId]);
+
   async function onCreateMeeting(e: React.FormEvent) {
     e.preventDefault();
     const titleCapture = newMeetingTitle;
@@ -298,9 +341,9 @@ export function DashboardClient({
     setToast("Asamblea creada");
   }
 
-  async function onDeleteMeeting(id: string, title: string) {
+  async function onDeactivateMeeting(id: string, title: string) {
     const ok = window.confirm(
-      `¿Eliminar la asamblea «${title}»?\n\nSe borrarán todas las preguntas, asistentes y votos vinculados. No se puede deshacer.`
+      `¿Desactivar la asamblea «${title}»?\n\nDejará de mostrarse en el panel y no se podrá votar, pero preguntas, asistentes y votos se conservan en la base de datos.`
     );
     if (!ok) return;
 
@@ -308,7 +351,7 @@ export function DashboardClient({
 
     setBusy(true);
     setToast(null);
-    const r = await deleteMeetingAction(id);
+    const r = await deactivateMeetingAction(id);
     setBusy(false);
     if (!r.ok) {
       setToast(r.error);
@@ -320,7 +363,7 @@ export function DashboardClient({
     if (meetingId === id) {
       setMeetingId(nextList[0]?.id ?? "");
     }
-    setToast("Asamblea eliminada");
+    setToast("Asamblea desactivada");
   }
 
   function startEditMeeting(m: MeetingRow) {
@@ -423,21 +466,21 @@ export function DashboardClient({
     await refreshQuestions(meetingId);
   }
 
-  async function onDeleteQuestion(q: QuestionRow) {
+  async function onDeactivateQuestion(q: QuestionRow) {
     const ok = window.confirm(
-      `¿Eliminar la pregunta «${q.title}»?\n\nSe borrarán los votos de esta pregunta. No se puede deshacer.`
+      `¿Desactivar la pregunta «${q.title}»?\n\nDejará de mostrarse en el panel y no se podrá votar, pero los votos y datos se conservan en la base de datos (por ejemplo para el acta en PDF).`
     );
     if (!ok) return;
     setBusy(true);
     setToast(null);
-    const r = await deleteQuestionAction(q.id);
+    const r = await deactivateQuestionAction(q.id);
     setBusy(false);
     if (!r.ok) {
       setToast(r.error);
       return;
     }
     if (questionQr?.publicId === q.publicId) setQuestionQr(null);
-    setToast("Pregunta eliminada");
+    setToast("Pregunta desactivada");
     await refreshQuestions(meetingId);
     void fetchLive();
   }
@@ -626,8 +669,10 @@ export function DashboardClient({
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">
                   Elige cuál usar para preguntas, CSV y exportación. Usa el lápiz
-                  para cambiar el nombre o la fecha sin perder datos. Al borrar una
-                  asamblea se eliminan sus preguntas, asistentes y votos.
+                  para cambiar el nombre o la fecha sin perder datos. Puedes
+                  desactivar una asamblea (icono de prohibido): deja de mostrarse
+                  aquí y se congela la votación, pero los datos se conservan en la
+                  base.
                 </p>
                 {meetings.length === 0 ? (
                   <p className="mt-6 text-sm text-zinc-500">
@@ -731,15 +776,15 @@ export function DashboardClient({
                           <button
                             type="button"
                             disabled={busy || isEditing}
-                            title="Borrar asamblea"
-                            aria-label={`Borrar asamblea ${m.title}`}
+                            title="Desactivar asamblea"
+                            aria-label={`Desactivar asamblea ${m.title}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              void onDeleteMeeting(m.id, m.title);
+                              void onDeactivateMeeting(m.id, m.title);
                             }}
-                            className="shrink-0 border-l border-zinc-700/80 px-3 text-zinc-500 transition hover:bg-red-950/40 hover:text-red-400 disabled:opacity-40"
+                            className="shrink-0 border-l border-zinc-700/80 px-3 text-zinc-500 transition hover:bg-amber-950/35 hover:text-amber-300 disabled:opacity-40"
                           >
-                            <Trash2 {...ICON} className="h-5 w-5" />
+                            <Ban {...ICON} className="h-5 w-5" />
                           </button>
                         </li>
                       );
@@ -810,11 +855,13 @@ export function DashboardClient({
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void onDeleteQuestion(selectedQuestionRow)}
-                      className="mt-5 inline-flex items-center gap-2 rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2 text-sm text-red-200 hover:bg-red-950/50 disabled:opacity-50"
+                      onClick={() =>
+                        void onDeactivateQuestion(selectedQuestionRow)
+                      }
+                      className="mt-5 inline-flex items-center gap-2 rounded-lg border border-amber-800/60 bg-amber-950/25 px-3 py-2 text-sm text-amber-100 hover:bg-amber-950/45 disabled:opacity-50"
                     >
-                      <Trash2 {...ICON} className="h-4 w-4" />
-                      Eliminar pregunta
+                      <Ban {...ICON} className="h-4 w-4" />
+                      Desactivar pregunta
                     </button>
                   ) : null}
                   {selectedPublicId ? (
@@ -937,8 +984,12 @@ export function DashboardClient({
                                   <XAxis
                                     dataKey="label"
                                     stroke="#a1a1aa"
-                                    tick={{ fontSize: 11 }}
+                                    tick={{ fontSize: 10 }}
                                     interval={0}
+                                    angle={-32}
+                                    textAnchor="end"
+                                    height={72}
+                                    tickMargin={6}
                                   />
                                   <YAxis
                                     stroke="#a1a1aa"
@@ -1056,6 +1107,149 @@ export function DashboardClient({
             </section>
           ) : null}
 
+          {meetings.length > 0 && tab === "voteLog" ? (
+            <section className="mx-auto max-w-6xl space-y-5">
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Registro de votos
+                </h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Elige una pregunta para ver solo los votos de esa pregunta
+                  (unidad y opción de voto). Puedes descargar el mismo detalle en PDF.
+                </p>
+                {activeMeeting ? (
+                  <p className="mt-2 text-xs text-zinc-600">
+                    Asamblea:{" "}
+                    <span className="text-zinc-400">{activeMeeting.title}</span>
+                  </p>
+                ) : null}
+              </div>
+
+              {questions.length > 0 ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                  <label className="flex min-w-[min(100%,280px)] flex-1 flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-zinc-400">
+                      Filtrar por pregunta
+                    </span>
+                    <select
+                      value={voteLogQuestionId}
+                      onChange={(e) => setVoteLogQuestionId(e.target.value)}
+                      className="rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2.5 text-white outline-none ring-[#1E6FFF]/40 focus:ring-2"
+                    >
+                      <option value="">Selecciona una pregunta</option>
+                      {questions.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {voteLogQuestionId ? (
+                    <a
+                      href={`/api/export/registro-votes-pdf?meetingId=${encodeURIComponent(meetingId)}&questionId=${encodeURIComponent(voteLogQuestionId)}`}
+                      className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-800/80 px-4 text-sm font-medium text-white transition-colors hover:border-[#1E6FFF]/50 hover:bg-zinc-800"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FileDown className="h-4 w-4 shrink-0" aria-hidden />
+                      Descargar PDF
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-[42px] shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 text-sm font-medium text-zinc-500"
+                    >
+                      <FileDown
+                        className="h-4 w-4 shrink-0 opacity-50"
+                        aria-hidden
+                      />
+                      Descargar PDF
+                    </button>
+                  )}
+                </div>
+              ) : null}
+
+              {voteLogLoading ? (
+                <div className="flex min-h-[200px] items-center justify-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 py-12">
+                  <Loader2
+                    className="h-6 w-6 shrink-0 animate-spin text-[#1E6FFF]"
+                    aria-hidden
+                  />
+                  <span className="text-sm text-zinc-400">
+                    Cargando votos…
+                  </span>
+                </div>
+              ) : questions.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center">
+                  <p className="text-sm text-zinc-400">
+                    Crea una pregunta en la pestaña Crear pregunta para ver el
+                    registro de votos.
+                  </p>
+                </div>
+              ) : !voteLogQuestionId ? (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center">
+                  <p className="text-sm text-zinc-400">
+                    Selecciona una pregunta en el menú superior para cargar el
+                    registro de votos.
+                  </p>
+                </div>
+              ) : voteLogRows.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center">
+                  <p className="text-sm text-zinc-400">
+                    Aún no hay votos registrados para esta pregunta.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/40 shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[420px] border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-zinc-800 bg-zinc-900/90">
+                          <th
+                            scope="col"
+                            className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                          >
+                            Unidad
+                          </th>
+                          <th
+                            scope="col"
+                            className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                          >
+                            Voto
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/90">
+                        {voteLogRows.map((row) => (
+                          <tr
+                            key={row.id}
+                            className="transition-colors hover:bg-zinc-900/50"
+                          >
+                            <td className="max-w-[200px] px-4 py-3 align-top font-medium text-white">
+                              <span className="line-clamp-3 sm:line-clamp-none font-mono tabular-nums">
+                                {row.unidad}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 align-top text-zinc-200">
+                              <span className="inline-flex rounded-md border border-zinc-700 bg-zinc-900/80 px-2.5 py-1 text-xs font-medium text-emerald-100/95">
+                                {row.voteLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="border-t border-zinc-800 bg-zinc-900/50 px-4 py-2 text-center text-xs text-zinc-500">
+                    {voteLogRows.length}{" "}
+                    {voteLogRows.length === 1 ? "registro" : "registros"}
+                  </p>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           {meetings.length > 0 && tab === "create" ? (
             <section
               className={
@@ -1137,14 +1331,20 @@ export function DashboardClient({
                   </option>
                 </select>
                 {qType === "multiple_choice" ? (
-                  <textarea
-                    required
-                    placeholder="Una opción por línea"
-                    value={qOptionsText}
-                    onChange={(e) => setQOptionsText(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
-                  />
+                  <>
+                    <textarea
+                      required
+                      placeholder="Ej. una opción por línea, o: Candidato A, Candidato B, Candidato C"
+                      value={qOptionsText}
+                      onChange={(e) => setQOptionsText(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      Mínimo 2 opciones. Puedes usar una línea por nombre o varios
+                      nombres en una sola línea separados por coma o punto y coma.
+                    </p>
+                  </>
                 ) : null}
                 <button
                   type="submit"
@@ -1255,8 +1455,10 @@ export function DashboardClient({
                 Exportar acta (PDF)
               </h2>
               <p className="mt-2 text-sm text-zinc-500">
-                Incluye fecha de la reunión, preguntas y resultados con opción
-                ganadora. Usa la asamblea activa.
+                Solo incluye <strong>preguntas activas</strong> en el panel. Por
+                cada una: participación, resumen, ganador y gráficos de barras y
+                circular (como en Resultados). Las desactivadas no se exportan.
+                Usa la asamblea activa.
               </p>
               <a
                 href={meetingId ? `/api/export/pdf?meetingId=${meetingId}` : "#"}

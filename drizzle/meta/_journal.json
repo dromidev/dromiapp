@@ -22,6 +22,20 @@
       "when": 1773984510823,
       "tag": "0002_assistants_unidad",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773984510824,
+      "tag": "0003_questions_is_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773984510825,
+      "tag": "0004_meetings_is_active",
+      "breakpoints": true
     }
   ]
 }

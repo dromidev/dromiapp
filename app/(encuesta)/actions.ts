@@ -7,6 +7,7 @@ import {
   assistants,
   meetings,
   questions,
+  votes,
   type QuestionType,
 } from "@/db/schema";
 import {
@@ -14,11 +15,15 @@ import {
   getAssistantVotingCodeSecret,
   hashAssistantVotingCode,
 } from "@/lib/codes";
-import { defaultOptionsForType } from "@/lib/question-defaults";
+import {
+  coerceMultipleChoiceOptions,
+  defaultOptionsForType,
+  parseMultipleChoiceOptionsText,
+} from "@/lib/question-defaults";
 import { aggregateResults } from "@/lib/vote-service";
 import { getMeetingExportPayload } from "@/lib/meeting-export";
 import { getEncuestaBaseUrl } from "@/lib/public-url";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import QRCode from "qrcode";
 import Papa from "papaparse";
 import { z } from "zod";
@@ -45,6 +50,7 @@ type QuestionRow = {
   publicId: string;
   accessCode: string;
   isOpen: boolean;
+  isActive: boolean;
   createdAt: Date;
 };
 
@@ -90,6 +96,7 @@ export async function createMeetingAction(formData: FormData) {
       title: parsed.data.title.trim(),
       meetingDate: d,
       createdByUserId: userId,
+      isActive: true,
     })
     .returning({ id: meetings.id });
 
@@ -111,7 +118,9 @@ export async function listMyMeetingsAction() {
       createdAt: meetings.createdAt,
     })
     .from(meetings)
-    .where(eq(meetings.createdByUserId, userId))
+    .where(
+      and(eq(meetings.createdByUserId, userId), eq(meetings.isActive, true))
+    )
     .orderBy(desc(meetings.createdAt));
 
   return data.map(
@@ -125,10 +134,9 @@ export async function listMyMeetingsAction() {
 }
 
 /**
- * Elimina la asamblea si pertenece al usuario del panel.
- * En BD, `questions`, `assistants` y `votes` se eliminan en cascada (FK onDelete: cascade).
+ * Oculta la asamblea del panel y congela votación pública; no borra preguntas, asistentes ni votos.
  */
-export async function deleteMeetingAction(meetingId: string) {
+export async function deactivateMeetingAction(meetingId: string) {
   const userId = await getDashboardUserId();
   if (!userId) {
     return { ok: false as const, error: "No autenticado" };
@@ -137,16 +145,29 @@ export async function deleteMeetingAction(meetingId: string) {
     return { ok: false as const, error: "Asamblea inválida" };
   }
 
-  const deleted = await db
-    .delete(meetings)
+  const found = await db
+    .select({ id: meetings.id })
+    .from(meetings)
     .where(
-      and(eq(meetings.id, meetingId), eq(meetings.createdByUserId, userId))
+      and(
+        eq(meetings.id, meetingId),
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true)
+      )
     )
-    .returning({ id: meetings.id });
+    .limit(1);
 
-  if (deleted.length === 0) {
-    return { ok: false as const, error: "Asamblea no encontrada" };
+  if (found.length === 0) {
+    return {
+      ok: false as const,
+      error: "Asamblea no encontrada o ya desactivada",
+    };
   }
+
+  await db
+    .update(meetings)
+    .set({ isActive: false })
+    .where(eq(meetings.id, meetingId));
 
   revalidatePath("/dashboard");
   return { ok: true as const };
@@ -186,13 +207,17 @@ export async function updateMeetingAction(formData: FormData) {
     .where(
       and(
         eq(meetings.id, parsed.data.meetingId),
-        eq(meetings.createdByUserId, userId)
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true)
       )
     )
     .returning({ id: meetings.id });
 
   if (updated.length === 0) {
-    return { ok: false as const, error: "Asamblea no encontrada" };
+    return {
+      ok: false as const,
+      error: "Asamblea no encontrada o desactivada",
+    };
   }
 
   revalidatePath("/dashboard");
@@ -231,14 +256,12 @@ export async function createQuestionAction(formData: FormData) {
   }
   let options: string[] = [];
   if (parsed.data.type === "multiple_choice") {
-    options = optionsText
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    options = parseMultipleChoiceOptionsText(optionsText);
     if (options.length < 2) {
       return {
         ok: false as const,
-        error: "Opción múltiple requiere al menos 2 opciones (una por línea)",
+        error:
+          "Opción múltiple requiere al menos 2 opciones. Escribe una por línea o varias en una línea separadas por coma (ej. Juan, Ana, Luis).",
       };
     }
   } else {
@@ -251,13 +274,17 @@ export async function createQuestionAction(formData: FormData) {
     .where(
       and(
         eq(meetings.id, parsed.data.meetingId),
-        eq(meetings.createdByUserId, userId)
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true)
       )
     )
     .limit(1);
 
   if (!m) {
-    return { ok: false as const, error: "Asamblea no encontrada" };
+    return {
+      ok: false as const,
+      error: "Asamblea no encontrada o desactivada",
+    };
   }
 
   let accessCode = generateAccessCode(6);
@@ -273,6 +300,7 @@ export async function createQuestionAction(formData: FormData) {
           options,
           accessCode,
           isOpen: true,
+          isActive: true,
         })
         .returning({
           id: questions.id,
@@ -318,25 +346,41 @@ export async function toggleQuestionOpenAction(
     .where(
       and(
         eq(questions.id, questionId),
+        eq(questions.isActive, true),
+        eq(meetings.isActive, true),
         eq(meetings.createdByUserId, userId)
       )
     )
     .limit(1);
 
   if (rows.length === 0) {
-    return { ok: false as const, error: "Pregunta no encontrada" };
+    return {
+      ok: false as const,
+      error: "Pregunta no encontrada o desactivada",
+    };
   }
 
-  await db
+  const updated = await db
     .update(questions)
     .set({ isOpen })
-    .where(eq(questions.id, questionId));
+    .where(
+      and(eq(questions.id, questionId), eq(questions.isActive, true))
+    )
+    .returning({ id: questions.id });
+
+  if (updated.length === 0) {
+    return {
+      ok: false as const,
+      error: "Pregunta no encontrada o desactivada",
+    };
+  }
 
   revalidatePath("/dashboard");
   return { ok: true as const };
 }
 
-export async function deleteQuestionAction(questionId: string) {
+/** Oculta la pregunta del panel y cierra votación; no borra filas ni votos. */
+export async function deactivateQuestionAction(questionId: string) {
   const userId = await getDashboardUserId();
   if (!userId) {
     return { ok: false as const, error: "No autenticado" };
@@ -350,15 +394,26 @@ export async function deleteQuestionAction(questionId: string) {
     .from(questions)
     .innerJoin(meetings, eq(questions.meetingId, meetings.id))
     .where(
-      and(eq(questions.id, questionId), eq(meetings.createdByUserId, userId))
+      and(
+        eq(questions.id, questionId),
+        eq(questions.isActive, true),
+        eq(meetings.isActive, true),
+        eq(meetings.createdByUserId, userId)
+      )
     )
     .limit(1);
 
   if (found.length === 0) {
-    return { ok: false as const, error: "Pregunta no encontrada" };
+    return {
+      ok: false as const,
+      error: "Pregunta no encontrada o ya desactivada",
+    };
   }
 
-  await db.delete(questions).where(eq(questions.id, questionId));
+  await db
+    .update(questions)
+    .set({ isActive: false, isOpen: false })
+    .where(eq(questions.id, questionId));
 
   revalidatePath("/dashboard");
   return { ok: true as const };
@@ -386,12 +441,19 @@ export async function importAssistantsCsvAction(formData: FormData) {
     .select({ id: meetings.id })
     .from(meetings)
     .where(
-      and(eq(meetings.id, meetingId), eq(meetings.createdByUserId, userId))
+      and(
+        eq(meetings.id, meetingId),
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true)
+      )
     )
     .limit(1);
 
   if (!m) {
-    return { ok: false as const, error: "Asamblea no encontrada" };
+    return {
+      ok: false as const,
+      error: "Asamblea no encontrada o desactivada",
+    };
   }
 
   const file = formData.get("file");
@@ -564,7 +626,11 @@ export async function listQuestionsForMeetingAction(meetingId: string) {
     .select({ id: meetings.id })
     .from(meetings)
     .where(
-      and(eq(meetings.id, meetingId), eq(meetings.createdByUserId, userId))
+      and(
+        eq(meetings.id, meetingId),
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true)
+      )
     )
     .limit(1);
 
@@ -573,7 +639,12 @@ export async function listQuestionsForMeetingAction(meetingId: string) {
   const qs = await db
     .select()
     .from(questions)
-    .where(eq(questions.meetingId, meetingId))
+    .where(
+      and(
+        eq(questions.meetingId, meetingId),
+        eq(questions.isActive, true)
+      )
+    )
     .orderBy(desc(questions.createdAt));
 
   return qs.map(
@@ -583,13 +654,105 @@ export async function listQuestionsForMeetingAction(meetingId: string) {
       title: q.title,
       description: q.description,
       type: q.type,
-      options: (q.options as string[]) ?? [],
+      options:
+        q.type === "multiple_choice"
+          ? coerceMultipleChoiceOptions(q.options)
+          : ((q.options as string[]) ?? []),
       publicId: q.publicId,
       accessCode: q.accessCode,
       isOpen: q.isOpen,
+      isActive: q.isActive,
       createdAt: toDate(q.createdAt),
     })
   );
+}
+
+export type MeetingVoteLogRow = {
+  id: string;
+  unidad: string;
+  questionTitle: string;
+  voteLabel: string;
+};
+
+function formatStoredVoteAnswer(answer: {
+  choice?: string;
+  scale?: number;
+}): string {
+  if (answer.choice != null && String(answer.choice).trim() !== "") {
+    return String(answer.choice);
+  }
+  if (
+    answer.scale != null &&
+    typeof answer.scale === "number" &&
+    Number.isFinite(answer.scale)
+  ) {
+    return String(answer.scale);
+  }
+  return "—";
+}
+
+/** Filas nombre + pregunta + voto para la asamblea activa (panel). Opcional: una pregunta. */
+export async function listMeetingVoteLogAction(
+  meetingId: string,
+  questionId?: string | null
+): Promise<MeetingVoteLogRow[]> {
+  const userId = await getDashboardUserId();
+  if (!userId) return [];
+  if (!z.string().uuid().safeParse(meetingId).success) return [];
+
+  const [meeting] = await db
+    .select({ id: meetings.id })
+    .from(meetings)
+    .where(
+      and(
+        eq(meetings.id, meetingId),
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true)
+      )
+    )
+    .limit(1);
+
+  if (!meeting) return [];
+
+  const filterQuestion =
+    questionId && z.string().uuid().safeParse(questionId).success
+      ? questionId
+      : null;
+
+  const rows = await db
+    .select({
+      id: votes.id,
+      unidad: assistants.unidad,
+      questionTitle: questions.title,
+      answer: votes.answer,
+    })
+    .from(votes)
+    .innerJoin(assistants, eq(votes.assistantId, assistants.id))
+    .innerJoin(questions, eq(votes.questionId, questions.id))
+    .innerJoin(meetings, eq(questions.meetingId, meetings.id))
+    .where(
+      and(
+        eq(questions.meetingId, meetingId),
+        eq(meetings.createdByUserId, userId),
+        eq(meetings.isActive, true),
+        eq(questions.isActive, true),
+        ...(filterQuestion ? [eq(questions.id, filterQuestion)] : [])
+      )
+    )
+    .orderBy(
+      ...(filterQuestion
+        ? [asc(assistants.unidad)]
+        : [asc(questions.title), asc(assistants.unidad)])
+    );
+
+  return rows.map((r) => ({
+    id: r.id,
+    unidad: r.unidad,
+    questionTitle: r.questionTitle,
+    voteLabel: formatStoredVoteAnswer(
+      (r.answer ?? {}) as { choice?: string; scale?: number }
+    ),
+  }));
 }
 
 export async function getQuestionQrDataUrlAction(publicId: string) {
@@ -608,6 +771,8 @@ export async function getQuestionQrDataUrlAction(publicId: string) {
     .where(
       and(
         eq(questions.publicId, publicId),
+        eq(questions.isActive, true),
+        eq(meetings.isActive, true),
         eq(meetings.createdByUserId, userId)
       )
     )
@@ -615,7 +780,11 @@ export async function getQuestionQrDataUrlAction(publicId: string) {
 
   const row = rows[0];
   if (!row) {
-    return { ok: false as const, error: "No autorizado" };
+    return {
+      ok: false as const,
+      error:
+        "No autorizado, pregunta desactivada o asamblea desactivada",
+    };
   }
 
   const base = getEncuestaBaseUrl();

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { meetings, questions } from "@/db/schema";
-import { aggregateResults } from "@/lib/vote-service";
+import { aggregateResults, participationStats } from "@/lib/vote-service";
 import { and, desc, eq } from "drizzle-orm";
 
 export type MeetingExportResult =
@@ -10,6 +10,12 @@ export type MeetingExportResult =
       questions: {
         title: string;
         type: string;
+        isOpen: boolean;
+        participation: {
+          totalAssistants: number;
+          votedCount: number;
+          participationPercent: number;
+        };
         total: number;
         breakdown: { label: string; count: number; percent: number }[];
         winner: string | null;
@@ -44,17 +50,23 @@ export async function getMeetingExportPayload(
       publicId: questions.publicId,
       title: questions.title,
       type: questions.type,
+      isOpen: questions.isOpen,
     })
     .from(questions)
-    .where(eq(questions.meetingId, meetingId))
+    .where(
+      and(eq(questions.meetingId, meetingId), eq(questions.isActive, true))
+    )
     .orderBy(desc(questions.createdAt));
 
   const items = [];
   for (const q of qs) {
     const agg = await aggregateResults(q.publicId);
+    const part = await participationStats(q.publicId);
     items.push({
       title: q.title,
       type: q.type,
+      isOpen: q.isOpen,
+      participation: part,
       total: agg.total,
       breakdown: agg.breakdown,
       winner: agg.winner,

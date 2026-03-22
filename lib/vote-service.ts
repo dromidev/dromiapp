@@ -1,13 +1,13 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { assistants, questions, votes } from "@/db/schema";
+import { assistants, meetings, questions, votes } from "@/db/schema";
 import type { QuestionType } from "@/db/schema";
 import {
   getAssistantVotingCodeSecret,
   hashAssistantVotingCode,
   normalizeVotingCode,
 } from "@/lib/codes";
-import { isValidChoice } from "@/lib/question-defaults";
+import { coerceMultipleChoiceOptions, isValidChoice } from "@/lib/question-defaults";
 
 function getVotingSecret(): string {
   const s = getAssistantVotingCodeSecret();
@@ -52,6 +52,14 @@ export async function verifyVotingStep(input: {
 > {
   const q = await getQuestionByPublicId(input.publicId);
   if (!q) return { ok: false, code: "not_found" };
+  if (!q.isActive) return { ok: false, code: "not_found" };
+
+  const [mrow] = await db
+    .select({ isActive: meetings.isActive })
+    .from(meetings)
+    .where(eq(meetings.id, q.meetingId))
+    .limit(1);
+  if (!mrow?.isActive) return { ok: false, code: "not_found" };
 
   const access = normalizeVotingCode(input.accessCode);
   const expected = normalizeVotingCode(q.accessCode);
@@ -85,7 +93,9 @@ export async function verifyVotingStep(input: {
   if (existing.length > 0) return { ok: false, code: "already_voted" };
 
   const opts =
-    q.type === "multiple_choice" ? (q.options as string[]) : ([] as string[]);
+    q.type === "multiple_choice"
+      ? coerceMultipleChoiceOptions(q.options)
+      : ([] as string[]);
 
   return {
     ok: true,
@@ -236,7 +246,14 @@ export async function participationStats(publicId: string) {
 /** Payload para `/api/questions/.../results` y pantalla de proyección. */
 export async function getPublicQuestionProjection(publicId: string) {
   const q = await getQuestionByPublicId(publicId);
-  if (!q) return null;
+  if (!q || !q.isActive) return null;
+
+  const [mrow] = await db
+    .select({ isActive: meetings.isActive })
+    .from(meetings)
+    .where(eq(meetings.id, q.meetingId))
+    .limit(1);
+  if (!mrow?.isActive) return null;
 
   const agg = await aggregateResults(publicId);
   const part = await participationStats(publicId);

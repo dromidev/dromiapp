@@ -29,6 +29,8 @@ export const meetings = pgTable("meetings", {
   createdByUserId: uuid("created_by_user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  /** Si es false, la asamblea no aparece en el panel; datos, preguntas y votos se conservan. */
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -78,6 +80,8 @@ export const questions = pgTable(
     publicId: uuid("public_id").defaultRandom().notNull(),
     accessCode: text("access_code").notNull(),
     isOpen: boolean("is_open").notNull().default(true),
+    /** Si es false, la pregunta no se muestra en el panel ni acepta votos; votos y datos se conservan. */
+    isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

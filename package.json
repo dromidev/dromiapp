@@ -13,6 +13,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed-admin": "tsx scripts/seed-admin.ts",
     "db:validate": "tsx scripts/validate-db.ts",
+    "db:apply-is-active": "tsx scripts/apply-questions-is-active.ts",
+    "db:apply-meetings-is-active": "tsx scripts/apply-meetings-is-active.ts",
     "auth:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
   },
   "dependencies": {
