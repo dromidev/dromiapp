@@ -25,10 +25,12 @@ import {
   CirclePlus,
   FileDown,
   Loader2,
+  LogOut,
   Pencil,
   Table2,
   UserPlus,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
@@ -553,19 +555,29 @@ export function DashboardClient({
           )}
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-            <p className="text-right text-xs text-zinc-500">
-              {userName ? (
-                <span className="text-zinc-300">{userName}</span>
-              ) : null}
-              {userName && userEmail ? <span className="text-zinc-600"> · </span> : null}
-              {userEmail ? (
-                <span className="font-mono text-zinc-400">{userEmail}</span>
-              ) : (
-                <span className="text-amber-400/90">
-                  Define DASHBOARD_USER_ID o SEED_ADMIN_EMAIL para gestionar asambleas
-                </span>
-              )}
-            </p>
+            <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <p className="text-right text-xs text-zinc-500">
+                {userName ? (
+                  <span className="text-zinc-300">{userName}</span>
+                ) : null}
+                {userName && userEmail ? (
+                  <span className="text-zinc-600"> · </span>
+                ) : null}
+                {userEmail ? (
+                  <span className="font-mono text-zinc-400">{userEmail}</span>
+                ) : null}
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  void signOut({ callbackUrl: "/login", redirect: true })
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800"
+              >
+                <LogOut className="h-3.5 w-3.5" aria-hidden />
+                Cerrar sesión
+              </button>
+            </div>
           </div>
         </div>
       </header>

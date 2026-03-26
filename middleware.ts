@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { isEncuestaHost, isMainMarketingHost } from "@/lib/hosts";
+
+const authSecret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
 
 function isEncuestaPath(pathname: string): boolean {
   if (pathname.startsWith("/api/")) return true;
@@ -39,11 +42,34 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const needsAuthGate =
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/login" ||
+    pathname.startsWith("/login/");
+
+  const token =
+    needsAuthGate && authSecret
+      ? await getToken({ req: request, secret: authSecret })
+      : null;
+
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    if (!token) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.searchParams.set(
+        "callbackUrl",
+        `${pathname}${request.nextUrl.search}`
+      );
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   if (pathname === "/login" || pathname.startsWith("/login/")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
+    if (token) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.next();
   }
 
   const encuesta = isEncuestaHost(host);

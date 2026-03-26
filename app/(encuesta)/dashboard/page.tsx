@@ -1,11 +1,15 @@
 import { listMyMeetingsAction } from "@/app/(encuesta)/actions";
 import { DashboardClient } from "@/components/encuesta/dashboard-client";
 import { getDashboardUserContext } from "@/lib/dashboard-user";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const ctx = await getDashboardUserContext();
+  if (!ctx) {
+    redirect("/login");
+  }
 
   const meetings = await listMyMeetingsAction();
   const initialMeetings = meetings.map((m) => ({

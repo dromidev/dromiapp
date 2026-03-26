@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const userId = await getDashboardUserId();
   if (!userId) {
     return NextResponse.json(
-      { error: "Configura DASHBOARD_USER_ID o SEED_ADMIN_EMAIL" },
+      { error: "No autenticado. Inicia sesión en el panel." },
       { status: 401 }
     );
   }

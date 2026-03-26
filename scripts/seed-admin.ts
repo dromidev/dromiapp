@@ -8,11 +8,15 @@ loadEnv({ path: ".env" });
 loadEnv({ path: ".env.local", override: true });
 
 async function main() {
-  const email = process.env.SEED_ADMIN_EMAIL;
-  const password = process.env.SEED_ADMIN_PASSWORD;
+  const email =
+    process.env.SEED_ADMIN_EMAIL?.trim() ||
+    process.env.SEED_ADMIN?.trim() ||
+    "";
+  const password =
+    process.env.SEED_ADMIN_PASSWORD ?? process.env.SEED_PASSWORD ?? "";
   if (!email || !password) {
     throw new Error(
-      "Define SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD en el entorno o en .env"
+      "Define SEED_ADMIN_EMAIL (o SEED_ADMIN) y SEED_ADMIN_PASSWORD (o SEED_PASSWORD) en .env / .env.local"
     );
   }
   const passwordHash = await hash(password, 12);
