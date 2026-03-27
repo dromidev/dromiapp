@@ -17,6 +17,7 @@ import {
   PieResultsSectorLabel,
   ResultsChartTooltip,
 } from "@/components/encuesta/recharts-results-tooltip";
+import { TranscriptionTab } from "@/components/encuesta/transcription-tab";
 import { questions as questionsTable } from "@/db/schema";
 import {
   Ban,
@@ -26,6 +27,7 @@ import {
   FileDown,
   Loader2,
   LogOut,
+  Mic,
   Pencil,
   Table2,
   UserPlus,
@@ -59,7 +61,8 @@ type TabId =
   | "voteLog"
   | "create"
   | "export"
-  | "assistants";
+  | "assistants"
+  | "transcription";
 
 type LiveResults = {
   question: {
@@ -94,6 +97,7 @@ const SIDEBAR_MAIN_NAV: {
   { id: "results", label: "Resultados", Icon: BarChart3 },
   { id: "voteLog", label: "Registro de votos", Icon: Table2 },
   { id: "assistants", label: "Asistentes", Icon: UserPlus },
+  { id: "transcription", label: "Transcripción", Icon: Mic },
 ];
 
 /** Solo mes, día y año (sin hora), en español. */
@@ -233,7 +237,11 @@ export function DashboardClient({
   }, [meetingId, refreshQuestions]);
 
   useEffect(() => {
-    if (meetings.length === 0 && tab !== "meetings") {
+    if (
+      meetings.length === 0 &&
+      tab !== "meetings" &&
+      tab !== "transcription"
+    ) {
       setTab("meetings");
     }
   }, [meetings.length, tab]);
@@ -1627,6 +1635,8 @@ export function DashboardClient({
               ) : null}
             </section>
           ) : null}
+
+          {tab === "transcription" ? <TranscriptionTab /> : null}
         </main>
       </div>
     </div>
