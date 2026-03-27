@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  deepgramTranscribeBuffer,
+  deepgramTranscribeUrl,
+  transcriptFromDeepgramJson,
+  type DeepgramListenResponse,
+} from "@/lib/deepgram-transcribe";
 import { getDashboardUserId } from "@/lib/dashboard-user";
 
 export const runtime = "nodejs";
@@ -28,13 +34,28 @@ function resolveContentType(file: File): string | null {
   return EXT_TO_MIME[ext] ?? null;
 }
 
-type DeepgramListenResponse = {
-  results?: {
-    channels?: Array<{
-      alternatives?: Array<{ transcript?: string }>;
-    }>;
-  };
-};
+/** Evita SSRF: solo URLs HTTPS de Vercel Blob (públicas para Deepgram). */
+function isAllowedTranscribeAudioUrl(href: string): boolean {
+  try {
+    const u = new URL(href);
+    if (u.protocol !== "https:") return false;
+    const host = u.hostname.toLowerCase();
+    return (
+      host.endsWith(".public.blob.vercel-storage.com") ||
+      host.endsWith(".blob.vercel-storage.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function respondDeepgramOk(
+  data: DeepgramListenResponse,
+  fileName: string
+) {
+  const transcript = transcriptFromDeepgramJson(data);
+  return NextResponse.json({ transcript, fileName });
+}
 
 export async function POST(request: Request) {
   const userId = await getDashboardUserId();
@@ -56,6 +77,57 @@ export async function POST(request: Request) {
     );
   }
 
+  const contentTypeHeader = request.headers.get("content-type") ?? "";
+
+  /** Flujo Vercel Blob: JSON { url, fileName? } — cuerpo pequeño, sin límite 4,5 MB. */
+  if (contentTypeHeader.includes("application/json")) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+    }
+    const url =
+      typeof body === "object" &&
+      body !== null &&
+      "url" in body &&
+      typeof (body as { url: unknown }).url === "string"
+        ? (body as { url: string }).url.trim()
+        : "";
+    const fileName =
+      typeof body === "object" &&
+      body !== null &&
+      "fileName" in body &&
+      typeof (body as { fileName: unknown }).fileName === "string"
+        ? (body as { fileName: string }).fileName
+        : "audio";
+
+    if (!url) {
+      return NextResponse.json({ error: "Falta url del audio." }, { status: 400 });
+    }
+    if (!isAllowedTranscribeAudioUrl(url)) {
+      return NextResponse.json(
+        {
+          error:
+            "URL no permitida. Usa solo archivos subidos al almacenamiento del proyecto (Vercel Blob).",
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const { data } = await deepgramTranscribeUrl(key, url);
+      return respondDeepgramOk(data, fileName);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return NextResponse.json(
+        { error: "Deepgram rechazó la petición.", details: msg },
+        { status: 502 }
+      );
+    }
+  }
+
+  /** Flujo clásico: multipart (local o sin Blob). */
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -63,7 +135,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "No se pudo leer el archivo completo. Suele ser un tope del entorno antes de nuestro límite de 100 MB: Next.js bufferiza el body (~10 MB por defecto; en el proyecto está en 100 MB en next.config — reinicia `npm run dev`). En Vercel las funciones suelen limitar el cuerpo a ~4.5 MB: comprime el audio (MP3) o evita pasar el archivo por esa ruta.",
+          "No se pudo leer el archivo completo. Si el archivo es grande, configura Vercel Blob y BLOB_READ_WRITE_TOKEN para subida directa.",
       },
       { status: 400 }
     );
@@ -80,14 +152,14 @@ export async function POST(request: Request) {
   if (file.size > MAX_FILE_BYTES) {
     return NextResponse.json(
       {
-        error: `El archivo supera el límite de ${MAX_FILE_BYTES / (1024 * 1024)} MB. Usa un formato comprimido (MP3, M4A) o un audio más corto.`,
+        error: `El archivo supera el límite de ${MAX_FILE_BYTES / (1024 * 1024)} MB. Usa Vercel Blob + URL, o un formato comprimido (MP3, M4A).`,
       },
       { status: 400 }
     );
   }
 
-  const contentType = resolveContentType(file);
-  if (!contentType) {
+  const ct = resolveContentType(file);
+  if (!ct) {
     return NextResponse.json(
       {
         error:
@@ -99,54 +171,20 @@ export async function POST(request: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const params = new URLSearchParams({
-    model: "nova-2",
-    smart_format: "true",
-    language: "es",
-  });
-
-  const dgRes = await fetch(
-    `https://api.deepgram.com/v1/listen?${params.toString()}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${key}`,
-        "Content-Type": contentType,
-      },
-      body: buffer,
-    }
-  );
-
-  const rawText = await dgRes.text();
-  let data: DeepgramListenResponse;
   try {
-    data = JSON.parse(rawText) as DeepgramListenResponse;
-  } catch {
+    const { data } = await deepgramTranscribeBuffer(key, buffer, ct);
+    return respondDeepgramOk(data, file.name);
+  } catch (e) {
+    if (e instanceof Error && e.message === "INVALID_JSON") {
+      return NextResponse.json(
+        { error: "Respuesta inválida del servicio de transcripción." },
+        { status: 502 }
+      );
+    }
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      {
-        error: "Respuesta inválida del servicio de transcripción.",
-        details: dgRes.ok ? undefined : rawText.slice(0, 200),
-      },
+      { error: "Deepgram rechazó la petición.", details: msg },
       { status: 502 }
     );
   }
-
-  if (!dgRes.ok) {
-    const errMsg =
-      (data as { err_msg?: string }).err_msg ??
-      rawText.slice(0, 300) ??
-      dgRes.statusText;
-    return NextResponse.json(
-      { error: "Deepgram rechazó la petición.", details: errMsg },
-      { status: 502 }
-    );
-  }
-
-  const transcript =
-    data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() ?? "";
-
-  return NextResponse.json({
-    transcript,
-    fileName: file.name,
-  });
 }

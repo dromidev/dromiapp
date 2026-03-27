@@ -1,5 +1,6 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { FileDown, Loader2, Mic } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
@@ -42,6 +43,13 @@ function getAudioDuration(file: File): Promise<number> {
   });
 }
 
+function safeBlobPathname(file: File): string {
+  const safe = file.name
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 100);
+  return `transcribe/${Date.now()}-${safe || "audio"}`;
+}
+
 async function downloadTranscriptionPdf(transcript: string) {
   const res = await fetch("/api/export/transcription-pdf", {
     method: "POST",
@@ -65,6 +73,160 @@ async function downloadTranscriptionPdf(transcript: string) {
   a.download = `transcripcion-${new Date().toISOString().slice(0, 10)}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function shouldFallbackToFormDataAfterBlobError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /503|BLOB|Almacenamiento|no configurado|Blob no/i.test(msg);
+}
+
+type TranscribeHandlers = {
+  setPhase: (p: Phase) => void;
+  setUploadProgress: (n: number) => void;
+  setTranscript: (t: string) => void;
+  setErrorMessage: (m: string | null) => void;
+};
+
+function applyTranscribeJsonResponse(
+  body: { transcript?: string; error?: string; details?: string },
+  handlers: TranscribeHandlers
+) {
+  const text = body.transcript?.trim() ?? "";
+  handlers.setTranscript(text);
+  handlers.setPhase("done");
+  if (!text) {
+    handlers.setErrorMessage(
+      "La transcripción está vacía. Comprueba que el audio tenga voz audible."
+    );
+  }
+}
+
+/** Subida directa a Vercel Blob + transcripción por URL (recomendado en Vercel). */
+async function transcribeViaBlob(
+  file: File,
+  handlers: TranscribeHandlers
+): Promise<void> {
+  handlers.setPhase("uploading");
+  handlers.setUploadProgress(0);
+
+  const putBlob = await upload(safeBlobPathname(file), file, {
+    access: "public",
+    handleUploadUrl: "/api/transcribe/blob",
+    multipart: file.size > 4 * 1024 * 1024,
+    contentType: file.type || undefined,
+    onUploadProgress: ({ percentage }) => {
+      handlers.setUploadProgress(Math.round(percentage));
+    },
+  });
+
+  handlers.setPhase("transcribing");
+  handlers.setUploadProgress(100);
+
+  const res = await fetch("/api/transcribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: putBlob.url, fileName: file.name }),
+  });
+
+  let body: { transcript?: string; error?: string; details?: string };
+  try {
+    body = (await res.json()) as {
+      transcript?: string;
+      error?: string;
+      details?: string;
+    };
+  } catch {
+    handlers.setErrorMessage("Respuesta inválida del servidor.");
+    handlers.setPhase("error");
+    return;
+  }
+
+  if (!res.ok) {
+    let msg = body.error ?? "No se pudo transcribir el audio.";
+    if (body.details) msg = `${msg} ${body.details}`;
+    handlers.setErrorMessage(msg);
+    handlers.setPhase("error");
+    return;
+  }
+
+  applyTranscribeJsonResponse(body, handlers);
+}
+
+/** Multipart a /api/transcribe (local o archivos pequeños en Vercel). */
+function transcribeViaFormData(
+  file: File,
+  handlers: TranscribeHandlers
+): Promise<void> {
+  return new Promise((resolve) => {
+    const fd = new FormData();
+    fd.set("file", file);
+
+    handlers.setPhase("uploading");
+    handlers.setUploadProgress(0);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/transcribe");
+    xhr.responseType = "json";
+
+    xhr.upload.addEventListener("progress", (ev) => {
+      if (ev.lengthComputable && ev.total > 0) {
+        handlers.setUploadProgress(
+          Math.round((ev.loaded / ev.total) * 100)
+        );
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      handlers.setUploadProgress(100);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const body = xhr.response as {
+          transcript?: string;
+          error?: string;
+          details?: string;
+        };
+        applyTranscribeJsonResponse(body, handlers);
+        resolve();
+        return;
+      }
+      if (xhr.status === 413) {
+        handlers.setErrorMessage(
+          "El archivo supera el límite del hosting (~4,5 MB en Vercel). Configura Vercel Blob (BLOB_READ_WRITE_TOKEN) para subidas grandes."
+        );
+        handlers.setPhase("error");
+        resolve();
+        return;
+      }
+      let msg = "No se pudo transcribir el audio.";
+      try {
+        const body = xhr.response as { error?: string; details?: string };
+        if (body?.error) msg = body.error;
+        if (body?.details) msg = `${msg} ${body.details}`;
+      } catch {
+        /* ignore */
+      }
+      handlers.setErrorMessage(msg);
+      handlers.setPhase("error");
+      resolve();
+    });
+
+    xhr.addEventListener("error", () => {
+      handlers.setErrorMessage("Error de red al subir el archivo.");
+      handlers.setPhase("error");
+      resolve();
+    });
+
+    xhr.addEventListener("abort", () => {
+      handlers.setPhase("idle");
+      resolve();
+    });
+
+    xhr.upload.addEventListener("load", () => {
+      handlers.setPhase("transcribing");
+      handlers.setUploadProgress(100);
+    });
+
+    xhr.send(fd);
+  });
 }
 
 export function TranscriptionTab() {
@@ -118,70 +280,26 @@ export function TranscriptionTab() {
         return;
       }
 
-      const fd = new FormData();
-      fd.set("file", file);
+      const handlers: TranscribeHandlers = {
+        setPhase,
+        setUploadProgress,
+        setTranscript,
+        setErrorMessage,
+      };
 
-      setPhase("uploading");
-      setUploadProgress(0);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/transcribe");
-      xhr.responseType = "json";
-
-      xhr.upload.addEventListener("progress", (ev) => {
-        if (ev.lengthComputable && ev.total > 0) {
-          setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
-        }
-      });
-
-      xhr.addEventListener("load", () => {
-        setUploadProgress(100);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          const body = xhr.response as { transcript?: string; error?: string };
-          const text = body.transcript?.trim() ?? "";
-          setTranscript(text);
-          setPhase("done");
-          if (!text) {
-            setErrorMessage(
-              "La transcripción está vacía. Comprueba que el audio tenga voz audible."
-            );
-          }
-          return;
-        }
-        if (xhr.status === 413) {
+      try {
+        await transcribeViaBlob(file, handlers);
+      } catch (err) {
+        if (shouldFallbackToFormDataAfterBlobError(err)) {
+          setErrorMessage(null);
+          await transcribeViaFormData(file, handlers);
+        } else {
           setErrorMessage(
-            "El archivo supera el límite del hosting (en Vercel suele ser ~4,5 MB por petición). Exporta el audio a MP3 más ligero o aloja la app donde permitan cuerpos mayores."
+            err instanceof Error ? err.message : "Error al subir el audio."
           );
           setPhase("error");
-          return;
         }
-        let msg = "No se pudo transcribir el audio.";
-        try {
-          const body = xhr.response as { error?: string; details?: string };
-          if (body?.error) msg = body.error;
-          if (body?.details) msg = `${msg} ${body.details}`;
-        } catch {
-          /* ignore */
-        }
-        setErrorMessage(msg);
-        setPhase("error");
-      });
-
-      xhr.addEventListener("error", () => {
-        setErrorMessage("Error de red al subir el archivo.");
-        setPhase("error");
-      });
-
-      xhr.addEventListener("abort", () => {
-        setPhase("idle");
-      });
-
-      xhr.upload.addEventListener("load", () => {
-        setPhase("transcribing");
-        setUploadProgress(100);
-      });
-
-      xhr.send(fd);
+      }
     },
     []
   );
