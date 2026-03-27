@@ -12,23 +12,45 @@ async function main() {
     process.env.SEED_ADMIN_EMAIL?.trim() ||
     process.env.SEED_ADMIN?.trim() ||
     "";
-  const password =
-    process.env.SEED_ADMIN_PASSWORD ?? process.env.SEED_PASSWORD ?? "";
+  const password = (
+    process.env.SEED_ADMIN_PASSWORD ??
+    process.env.SEED_PASSWORD ??
+    ""
+  ).trim();
   if (!email || !password) {
     throw new Error(
       "Define SEED_ADMIN_EMAIL (o SEED_ADMIN) y SEED_ADMIN_PASSWORD (o SEED_PASSWORD) en .env / .env.local"
     );
   }
   const passwordHash = await hash(password, 12);
+  const emailNorm = email.trim().toLowerCase();
+
+  /**
+   * Upsert por email: si el usuario ya existía (p. ej. fila creada por el trigger
+   * de Supabase Auth con password_hash vacío), actualizamos el hash para que el
+   * login por Credentials funcione. onConflictDoNothing dejaba la contraseña rota.
+   */
   await db
     .insert(users)
     .values({
-      email: email.trim().toLowerCase(),
+      email: emailNorm,
       passwordHash,
       name: "Administrador",
     })
-    .onConflictDoNothing({ target: users.email });
-  console.log("Listo. Si el email ya existía, no se duplicó la fila.");
+    .onConflictDoUpdate({
+      target: users.email,
+      set: {
+        passwordHash,
+        name: "Administrador",
+        updatedAt: new Date(),
+      },
+    });
+
+  console.log(
+    "Listo. Contraseña guardada para",
+    emailNorm,
+    "(nuevo usuario o actualización del existente)."
+  );
 }
 
 main()

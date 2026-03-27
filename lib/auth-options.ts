@@ -44,7 +44,13 @@ export const authOptions: NextAuthOptions = {
 
         if (!row) return null;
 
-        const ok = await compare(passwordRaw, row.passwordHash);
+        /** Hash vacío o no bcrypt: típico si la fila vino del trigger de Supabase Auth. */
+        const hash = row.passwordHash?.trim() ?? "";
+        if (hash.length < 50) {
+          return null;
+        }
+
+        const ok = await compare(passwordRaw, hash);
         if (!ok) return null;
 
         return {
