@@ -593,7 +593,7 @@ export function DashboardClient({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-900 bg-zinc-950 py-3 min-h-0">
           <nav
-            className="flex min-h-0 flex-1 flex-col gap-0.5 px-2"
+            className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2"
             aria-label="Secciones"
           >
             {SIDEBAR_MAIN_NAV.map(({ id, label, Icon }) => {
