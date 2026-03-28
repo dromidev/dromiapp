@@ -13,7 +13,6 @@ import {
   Vote,
   CheckCircle,
   ArrowRight,
-  Building2,
   Clock,
   Star,
   Menu,
@@ -25,6 +24,9 @@ import {
   ClipboardCheck,
   Pencil,
 } from "lucide-react";
+
+/** Logo en `public/iamge/` (ruta del proyecto). */
+const DROMI_LOGO_SRC = "/iamge/dromi%20logo.svg";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -350,15 +352,21 @@ export default function HomeLanding() {
             WebkitBackdropFilter: "blur(20px)",
           }}
         >
-          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900">
-                <Building2 className="h-3.5 w-3.5 text-white" />
-              </div>
-              <span className="text-[12px] font-light uppercase tracking-[0.22em] text-slate-500">
-                Dromi
-              </span>
-            </div>
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:h-[4.5rem]">
+            <a
+              href="#"
+              className="flex items-center py-1"
+              aria-label="Dromi — inicio"
+            >
+              <img
+                src={DROMI_LOGO_SRC}
+                alt=""
+                width={260}
+                height={72}
+                className="h-11 w-auto max-h-[2.75rem] object-contain object-left sm:h-12 sm:max-h-14 md:h-14 md:max-h-[3.75rem]"
+                decoding="async"
+              />
+            </a>
 
             <div className="hidden items-center gap-8 md:flex">
               {[
@@ -451,7 +459,7 @@ export default function HomeLanding() {
           </AnimatePresence>
         </nav>
 
-        <section className="relative overflow-hidden pb-20 pt-32">
+        <section className="relative overflow-hidden pb-20 pt-28 sm:pt-32 md:pt-36">
           <div
             className="pointer-events-none absolute inset-0"
             style={{
@@ -465,11 +473,11 @@ export default function HomeLanding() {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="mb-7"
+              className="mb-7 flex flex-col items-center lowercase"
             >
               <span className="label-tag">
                 <Zap className="h-3 w-3" />
-                Tecnología IA para Propiedad Horizontal
+                tecnología ia para propiedad horizontal
               </span>
             </motion.div>
 
@@ -478,18 +486,20 @@ export default function HomeLanding() {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.09 }}
-              className="mb-6 lowercase"
+              className="mb-6 max-w-4xl mx-auto text-balance font-light"
               style={{
                 fontSize: "clamp(40px, 7vw, 78px)",
-                fontWeight: 900,
                 letterSpacing: "-0.035em",
                 lineHeight: 1.06,
                 color: "#0f172a",
               }}
             >
-              Tu asamblea grabada.
-              <br />
-              <span className="text-slate-500">El acta, lista en 48 horas.</span>
+              Asambleas más{" "}
+              <span className="font-semibold">ágiles</span>,{" "}
+              <span className="font-semibold">transparentes</span> y bien{" "}
+              <span className="font-semibold italic text-emerald-500">
+                documentadas.
+              </span>
             </motion.h1>
 
             <motion.p
@@ -497,10 +507,10 @@ export default function HomeLanding() {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.18 }}
-              className="mx-auto mb-10 max-w-lg text-[15px] leading-relaxed text-slate-600"
+              className="mx-auto mb-10 max-w-lg text-[15px] leading-relaxed text-slate-600 lowercase"
             >
-              Transcripción con IA, validación especializada y votación digital
-              en tiempo real. Un profesional de nuestro equipo estará presente
+              transcripción con ia, validación especializada y votación digital
+              en tiempo real. un profesional de nuestro equipo estará presente
               en tu asamblea para garantizarlo todo.
             </motion.p>
 
@@ -1344,12 +1354,14 @@ export default function HomeLanding() {
         <footer className="border-t border-slate-200 bg-white py-8">
           <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900">
-                <Building2 className="h-3 w-3 text-white" />
-              </div>
-              <span className="text-sm font-medium tracking-tight text-slate-900">
-                Dromi
-              </span>
+              <img
+                src={DROMI_LOGO_SRC}
+                alt="Dromi"
+                width={220}
+                height={56}
+                className="h-12 w-auto object-contain opacity-90 sm:h-14"
+                decoding="async"
+              />
             </div>
             <p className="text-xs text-slate-500">
               © 2026 Dromi · Tecnología para Propiedad Horizontal · Colombia

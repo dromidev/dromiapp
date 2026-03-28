@@ -17,7 +17,8 @@
     "db:apply-meetings-is-active": "tsx scripts/apply-meetings-is-active.ts",
     "db:apply-user-role-acta": "tsx scripts/apply-user-role-acta.ts",
     "db:apply-acta-step-times": "tsx scripts/apply-acta-step-completed-at.ts",
-    "auth:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
+    "auth:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
+    "favicons": "node scripts/generate-favicons.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
@@ -48,6 +49,8 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"
