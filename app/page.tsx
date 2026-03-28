@@ -1,17 +1,13 @@
-import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
-import Features from "@/components/Features";
-import HowItWorks from "@/components/HowItWorks";
-import EarlyAccess from "@/components/EarlyAccess";
+import type { Metadata } from "next";
+import HomeLanding from "@/components/landing/home-landing";
+
+export const metadata: Metadata = {
+  title:
+    "Dromi — Actas con IA y votaciones digitales para propiedad horizontal",
+  description:
+    "Transcripción con IA, actas en 48 horas y votación digital en tiempo real. Presencia física en cada asamblea. Costa Caribe de Colombia.",
+};
 
 export default function Home() {
-  return (
-    <main>
-      <Navbar />
-      <Hero />
-      <Features />
-      <HowItWorks />
-      <EarlyAccess />
-    </main>
-  );
+  return <HomeLanding />;
 }
