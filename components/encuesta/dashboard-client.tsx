@@ -28,6 +28,7 @@ import {
   Home,
   Loader2,
   LogOut,
+  Menu,
   Pencil,
   Table2,
   UserPlus,
@@ -205,6 +206,55 @@ export function DashboardClient({
   const [voteLogRows, setVoteLogRows] = useState<MeetingVoteLogRow[]>([]);
   const [voteLogLoading, setVoteLogLoading] = useState(false);
   const [voteLogQuestionId, setVoteLogQuestionId] = useState("");
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const mobileSidebarCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const closeMobileSidebar = useCallback(() => {
+    if (mobileSidebarCloseTimerRef.current) {
+      clearTimeout(mobileSidebarCloseTimerRef.current);
+      mobileSidebarCloseTimerRef.current = null;
+    }
+    setMobileSidebarOpen(false);
+  }, []);
+
+  const openMobileSidebar = useCallback(() => {
+    setMobileSidebarOpen(true);
+    if (mobileSidebarCloseTimerRef.current) {
+      clearTimeout(mobileSidebarCloseTimerRef.current);
+    }
+    mobileSidebarCloseTimerRef.current = setTimeout(() => {
+      setMobileSidebarOpen(false);
+      mobileSidebarCloseTimerRef.current = null;
+    }, 2000);
+  }, []);
+
+  const selectTab = useCallback(
+    (id: TabId) => {
+      setTab(id);
+      closeMobileSidebar();
+    },
+    [closeMobileSidebar]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (mobileSidebarCloseTimerRef.current) {
+        clearTimeout(mobileSidebarCloseTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => {
+      if (mq.matches) closeMobileSidebar();
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [closeMobileSidebar]);
 
   const activeMeeting = useMemo(
     () => meetings.find((m) => m.id === meetingId),
@@ -542,7 +592,18 @@ export function DashboardClient({
     <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#f4f6f9]">
       <header className="shrink-0 border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <button
+              type="button"
+              onClick={openMobileSidebar}
+              className="mt-0.5 inline-flex shrink-0 rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm transition hover:bg-slate-50 md:hidden"
+              aria-expanded={mobileSidebarOpen}
+              aria-controls="dashboard-sidebar-nav"
+              aria-label="Abrir menú de secciones"
+            >
+              <Menu className="h-5 w-5" strokeWidth={1.5} aria-hidden />
+            </button>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="text-lg font-semibold text-slate-900">
             {tab === "resumen"
               ? "Resumen"
@@ -569,6 +630,7 @@ export function DashboardClient({
               <strong className="font-medium">Asamblea</strong>.
             </p>
           )}
+            </div>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3">
@@ -598,8 +660,24 @@ export function DashboardClient({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white py-3 min-h-0">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {mobileSidebarOpen ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-30 bg-slate-900/35 md:hidden"
+            aria-label="Cerrar menú"
+            onClick={closeMobileSidebar}
+          />
+        ) : null}
+
+        <aside
+          id="dashboard-sidebar-nav"
+          className={`flex min-h-0 w-56 shrink-0 flex-col border-r border-slate-200 bg-white py-3 transition-transform duration-200 ease-out md:relative md:z-auto md:translate-x-0 ${
+            mobileSidebarOpen
+              ? "max-md:translate-x-0"
+              : "max-md:-translate-x-full"
+          } max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-xl`}
+        >
           <nav
             className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2"
             aria-label="Secciones"
@@ -610,7 +688,7 @@ export function DashboardClient({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setTab(id)}
+                  onClick={() => selectTab(id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
                     active
                       ? "bg-slate-900 text-white"
@@ -626,7 +704,7 @@ export function DashboardClient({
           <div className="mt-auto border-t border-slate-200 px-2 pt-2">
             <button
               type="button"
-              onClick={() => setTab("export")}
+              onClick={() => selectTab("export")}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
                 tab === "export"
                   ? "bg-slate-900 text-white"
@@ -652,7 +730,7 @@ export function DashboardClient({
               activeMeetingId={meetingId}
               userName={userName}
               userEmail={userEmail}
-              onGoExport={() => setTab("export")}
+              onGoExport={() => selectTab("export")}
             />
           ) : null}
 
