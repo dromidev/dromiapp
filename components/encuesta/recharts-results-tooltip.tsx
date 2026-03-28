@@ -31,9 +31,9 @@ export function ResultsChartTooltip({
   const value = row?.value;
   const title = String(label ?? row?.name ?? "");
   return (
-    <div className="rounded-lg border border-zinc-500 bg-zinc-800 px-3 py-2 shadow-xl">
-      <p className="text-sm font-medium text-white">{title}</p>
-      <p className="mt-1 text-sm text-white">
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg shadow-slate-200/80">
+      <p className="text-sm font-medium text-slate-900">{title}</p>
+      <p className="mt-1 text-sm text-slate-600">
         Conteo:{" "}
         <span className="font-semibold tabular-nums">{String(value)}</span>
       </p>

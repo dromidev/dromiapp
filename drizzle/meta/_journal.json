@@ -36,6 +36,20 @@
       "when": 1773984510825,
       "tag": "0004_meetings_is_active",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773984510826,
+      "tag": "0005_user_role_acta",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773984510827,
+      "tag": "0006_acta_step_completed_at",
+      "breakpoints": true
     }
   ]
 }

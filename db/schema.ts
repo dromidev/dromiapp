@@ -6,14 +6,21 @@ import {
   boolean,
   jsonb,
   uniqueIndex,
+  integer,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+
+export const userRoles = ["client", "superadmin"] as const;
+export type UserRole = (typeof userRoles)[number];
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name"),
+  /** Nombre de la copropiedad / conjunto (cuenta de administración). */
+  organizationName: text("organization_name"),
+  role: text("role").$type<UserRole>().notNull().default("client"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -31,6 +38,13 @@ export const meetings = pgTable("meetings", {
     .references(() => users.id, { onDelete: "cascade" }),
   /** Si es false, la asamblea no aparece en el panel; datos, preguntas y votos se conservan. */
   isActive: boolean("is_active").notNull().default(true),
+  /** Pasos del acta completados (0–6). 6 = entrega PDF hecha. */
+  actaStepsCompleted: integer("acta_steps_completed").notNull().default(0),
+  /** ISO string por paso 0..5: cuándo ese paso pasó a “completado”. */
+  actaStepCompletedAt: jsonb("acta_step_completed_at").$type<
+    (string | null)[]
+  >(),
+  actaUpdatedAt: timestamp("acta_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

@@ -4,24 +4,20 @@ import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { isAdministratorHost } from "@/lib/hosts";
-import { LoginForm } from "./login-form";
+import { RegisterForm } from "./register-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   const h = (await headers()).get("host") ?? "";
-  const administratorHost = isAdministratorHost(h);
-  const encuestaOrigin =
-    process.env.NEXT_PUBLIC_ENCUESTA_ORIGIN ?? "https://encuesta.dromi.lat";
+  if (isAdministratorHost(h)) {
+    const origin =
+      process.env.NEXT_PUBLIC_ENCUESTA_ORIGIN ?? "https://encuesta.dromi.lat";
+    redirect(`${origin}/register`);
+  }
 
   const session = await getServerSession(authOptions);
   if (session) {
-    if (administratorHost && session.user.role === "superadmin") {
-      redirect("/admin");
-    }
-    if (administratorHost && session.user.role !== "superadmin") {
-      redirect(`${encuestaOrigin}/dashboard`);
-    }
     redirect("/dashboard");
   }
 
@@ -33,10 +29,7 @@ export default async function LoginPage() {
         </div>
       }
     >
-      <LoginForm
-        administratorHost={administratorHost}
-        defaultCallbackUrl={administratorHost ? "/admin" : "/dashboard"}
-      />
+      <RegisterForm />
     </Suspense>
   );
 }

@@ -15,11 +15,12 @@
     "db:validate": "tsx scripts/validate-db.ts",
     "db:apply-is-active": "tsx scripts/apply-questions-is-active.ts",
     "db:apply-meetings-is-active": "tsx scripts/apply-meetings-is-active.ts",
+    "db:apply-user-role-acta": "tsx scripts/apply-user-role-acta.ts",
+    "db:apply-acta-step-times": "tsx scripts/apply-acta-step-completed-at.ts",
     "auth:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
-    "@vercel/blob": "^2.3.1",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.1",
     "framer-motion": "^11.18.2",

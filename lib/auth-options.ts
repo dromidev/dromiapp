@@ -37,6 +37,8 @@ export const authOptions: NextAuthOptions = {
             email: users.email,
             passwordHash: users.passwordHash,
             name: users.name,
+            role: users.role,
+            organizationName: users.organizationName,
           })
           .from(users)
           .where(eq(users.email, email))
@@ -57,6 +59,8 @@ export const authOptions: NextAuthOptions = {
           id: row.id,
           email: row.email,
           name: row.name ?? undefined,
+          role: row.role,
+          organizationName: row.organizationName ?? null,
         };
       },
     }),
@@ -73,6 +77,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.sub = user.id;
         if (user.email) token.email = user.email;
+        token.role = user.role;
+        token.organizationName = user.organizationName ?? null;
       }
       return token;
     },
@@ -82,6 +88,10 @@ export const authOptions: NextAuthOptions = {
         if (token.email && typeof token.email === "string") {
           session.user.email = token.email;
         }
+        session.user.role =
+          token.role === "superadmin" ? "superadmin" : "client";
+        session.user.organizationName =
+          (token.organizationName as string | null | undefined) ?? null;
       }
       return session;
     },

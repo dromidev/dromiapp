@@ -23,6 +23,7 @@ import {
 import { aggregateResults } from "@/lib/vote-service";
 import { getMeetingExportPayload } from "@/lib/meeting-export";
 import { getEncuestaBaseUrl } from "@/lib/public-url";
+import { parseActaStepCompletedAt } from "@/lib/acta-step-times";
 import { and, asc, desc, eq } from "drizzle-orm";
 import QRCode from "qrcode";
 import Papa from "papaparse";
@@ -38,6 +39,8 @@ type MeetingRow = {
   title: string;
   meetingDate: Date;
   createdAt: Date;
+  actaStepsCompleted: number;
+  actaStepCompletedAt: (string | null)[];
 };
 
 type QuestionRow = {
@@ -116,6 +119,8 @@ export async function listMyMeetingsAction() {
       title: meetings.title,
       meetingDate: meetings.meetingDate,
       createdAt: meetings.createdAt,
+      actaStepsCompleted: meetings.actaStepsCompleted,
+      actaStepCompletedAt: meetings.actaStepCompletedAt,
     })
     .from(meetings)
     .where(
@@ -129,6 +134,8 @@ export async function listMyMeetingsAction() {
       title: m.title,
       meetingDate: toDate(m.meetingDate),
       createdAt: toDate(m.createdAt),
+      actaStepsCompleted: m.actaStepsCompleted,
+      actaStepCompletedAt: parseActaStepCompletedAt(m.actaStepCompletedAt),
     })
   );
 }

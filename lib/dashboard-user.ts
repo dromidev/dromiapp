@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import type { UserRole } from "@/db/schema";
 
 /** ID para `created_by_user_id` y comprobaciones de propiedad en server actions. */
 export async function getDashboardUserId(): Promise<string | null> {
@@ -11,6 +12,8 @@ export type DashboardUserContext = {
   id: string;
   email: string;
   name: string | null;
+  role: UserRole;
+  organizationName: string | null;
 };
 
 export async function getDashboardUserContext(): Promise<DashboardUserContext | null> {
@@ -20,5 +23,7 @@ export async function getDashboardUserContext(): Promise<DashboardUserContext | 
     id: session.user.id,
     email: session.user.email ?? "",
     name: session.user.name ?? null,
+    role: session.user.role ?? "client",
+    organizationName: session.user.organizationName ?? null,
   };
 }

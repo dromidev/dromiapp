@@ -22,8 +22,8 @@ import {
   Mail,
   MapPin,
   UserCheck,
-  Camera,
   ClipboardCheck,
+  Pencil,
 } from "lucide-react";
 
 const fadeUp = {
@@ -313,6 +313,12 @@ export default function HomeLanding() {
           letter-spacing: 0.14em;
           text-transform: uppercase;
         }
+        .home-landing nav .btn-ghost.nav-header-login {
+          font-size: 11px;
+          font-weight: 400;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
         .btn-ghost {
           display: inline-flex;
           align-items: center;
@@ -373,6 +379,14 @@ export default function HomeLanding() {
             </div>
 
             <div className="hidden items-center gap-2.5 md:flex">
+              <a
+                href="https://encuesta.dromi.lat"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-ghost nav-header-login px-4 py-2"
+              >
+                Iniciar sesión
+              </a>
               <a href="#contacto" className="btn-primary px-4 py-2">
                 Solicitar más info
               </a>
@@ -417,8 +431,17 @@ export default function HomeLanding() {
                   </a>
                 ))}
                 <a
+                  href="https://encuesta.dromi.lat"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ghost nav-header-login mt-2 justify-center"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Iniciar sesión
+                </a>
+                <a
                   href="#contacto"
-                  className="btn-primary mt-2 justify-center"
+                  className="btn-primary justify-center"
                   onClick={() => setMenuOpen(false)}
                 >
                   Solicitar más info
@@ -726,8 +749,8 @@ export default function HomeLanding() {
                   </p>
                   <div className="flex items-center gap-1.5">
                     {[
-                      { icon: Camera, label: "Grabación" },
-                      { icon: Mic, label: "Transcripción IA" },
+                      { icon: Mic, label: "Grabación" },
+                      { icon: Pencil, label: "Transcripción IA" },
                       { icon: ClipboardCheck, label: "Validación" },
                       { icon: FileText, label: "Acta PDF" },
                     ].map((step, i, arr) => (
@@ -752,7 +775,7 @@ export default function HomeLanding() {
                     "Especialista presente en tu asamblea",
                     "Grabación de audio profesional",
                     "Transcripción y estructuración con IA",
-                    "Validación y revisión legal del contenido",
+                    "Validación y revisión",
                     "Acta en PDF en máximo 48 horas hábiles",
                     "Cumplimiento con Ley 675 de 2001",
                   ].map((f) => (
@@ -792,9 +815,8 @@ export default function HomeLanding() {
                   </h3>
                   <p className="text-sm leading-relaxed text-slate-600">
                     El mismo especialista opera el sistema de votaciones durante
-                    la asamblea. Los copropietarios votan desde su celular y los
-                    resultados se muestran al instante con coeficientes
-                    ponderados.
+                    la                     asamblea. Los copropietarios votan desde su celular y los
+                    resultados se muestran al instante según los votantes.
                   </p>
                 </div>
                 <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50 p-4">
@@ -826,10 +848,10 @@ export default function HomeLanding() {
                   {[
                     "Especialista opera el sistema en la asamblea",
                     "Votación desde cualquier celular, sin app",
-                    "Cálculo automático por coeficientes",
+                    "Cálculo automático por votantes",
                     "Resultados en pantalla al instante",
                     "Historial y trazabilidad completa",
-                    "Exportación de resultados para el acta",
+                    "Exportación de resultados para adjuntar al acta",
                   ].map((f) => (
                     <li
                       key={f}
@@ -955,12 +977,12 @@ export default function HomeLanding() {
                   <ProcessStep
                     num="01"
                     title="Configuración previa a la asamblea"
-                    desc="Registramos el censo de copropietarios con sus coeficientes y cargamos el orden del día con los puntos a votar."
+                    desc="Registramos el censo de copropietarios y cargamos el orden del día con los puntos a votar."
                   />
                   <ProcessStep
                     num="02"
                     title="Copropietarios se conectan al llegar"
-                    desc="Cada asistente accede desde su celular con un enlace único. Sin descarga de app, sin registro previo."
+                    desc="Cada asistente accede desde su celular con un código único para votar. Sin descarga de app, sin registro previo."
                   />
                   <ProcessStep
                     num="03"
@@ -1086,11 +1108,11 @@ export default function HomeLanding() {
                   "Especialista presencial durante toda la asamblea",
                   "Grabación y gestión del audio completo",
                   "Transcripción con IA de toda la sesión",
-                  "Validación y revisión legal del contenido",
+                  "Validación y revisión",
                   "Acta oficial en PDF en máximo 48 horas hábiles",
                   "Sistema de votaciones digitales en tiempo real",
-                  "Cálculo automático por coeficientes de copropiedad",
-                  "Exportación de resultados integrada al acta",
+                  "Cálculo automático por votantes",
+                  "Exportación de resultados para adjuntar al acta",
                   "Cumplimiento con Ley 675 de 2001",
                 ].map((f) => (
                   <li

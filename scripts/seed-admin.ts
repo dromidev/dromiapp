@@ -36,12 +36,16 @@ async function main() {
       email: emailNorm,
       passwordHash,
       name: "Administrador",
+      organizationName: "Dromi",
+      role: "superadmin",
     })
     .onConflictDoUpdate({
       target: users.email,
       set: {
         passwordHash,
         name: "Administrador",
+        organizationName: "Dromi",
+        role: "superadmin",
         updatedAt: new Date(),
       },
     });

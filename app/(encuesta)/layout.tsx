@@ -12,7 +12,7 @@ export default function EncuestaLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <AuthSessionProvider>
-      <div className="min-h-screen bg-[#0f1419] text-zinc-100 antialiased">
+      <div className="min-h-screen bg-[#f4f6f9] text-slate-900 antialiased">
         {children}
       </div>
     </AuthSessionProvider>

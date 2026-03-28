@@ -20,6 +20,8 @@ export default async function DashboardPage() {
         ? m.meetingDate.toISOString()
         : new Date(m.meetingDate as unknown as string).toISOString(),
     createdAt: m.createdAt.toISOString(),
+    actaStepsCompleted: m.actaStepsCompleted,
+    actaStepCompletedAt: m.actaStepCompletedAt,
   }));
   return (
     <DashboardClient

@@ -13,11 +13,11 @@ import {
   updateMeetingAction,
   type MeetingVoteLogRow,
 } from "@/app/(encuesta)/actions";
+import { DashboardResumenView } from "@/components/encuesta/dashboard-resumen";
 import {
   PieResultsSectorLabel,
   ResultsChartTooltip,
 } from "@/components/encuesta/recharts-results-tooltip";
-import { TranscriptionTab } from "@/components/encuesta/transcription-tab";
 import { questions as questionsTable } from "@/db/schema";
 import {
   Ban,
@@ -25,9 +25,9 @@ import {
   Building2,
   CirclePlus,
   FileDown,
+  Home,
   Loader2,
   LogOut,
-  Mic,
   Pencil,
   Table2,
   UserPlus,
@@ -51,18 +51,20 @@ type MeetingRow = {
   title: string;
   meetingDate: string;
   createdAt: string;
+  actaStepsCompleted: number;
+  actaStepCompletedAt: (string | null)[];
 };
 
 type QuestionRow = typeof questionsTable.$inferSelect;
 
 type TabId =
+  | "resumen"
   | "meetings"
   | "results"
   | "voteLog"
   | "create"
   | "export"
-  | "assistants"
-  | "transcription";
+  | "assistants";
 
 type LiveResults = {
   question: {
@@ -92,12 +94,12 @@ const SIDEBAR_MAIN_NAV: {
   label: string;
   Icon: typeof Building2;
 }[] = [
+  { id: "resumen", label: "Resumen", Icon: Home },
   { id: "meetings", label: "Asamblea", Icon: Building2 },
   { id: "create", label: "Crear Preguntas", Icon: CirclePlus },
   { id: "results", label: "Resultados", Icon: BarChart3 },
   { id: "voteLog", label: "Registro de votos", Icon: Table2 },
   { id: "assistants", label: "Asistentes", Icon: UserPlus },
-  { id: "transcription", label: "Transcripción", Icon: Mic },
 ];
 
 /** Solo mes, día y año (sin hora), en español. */
@@ -144,7 +146,7 @@ function QrPresentationLink({
       href={`/dashboard/qr/${publicId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className={`text-sm font-medium text-emerald-300 underline-offset-2 hover:text-emerald-200 hover:underline ${className}`}
+      className={`text-sm font-medium text-emerald-600 underline-offset-2 hover:text-emerald-800 hover:underline ${className}`}
     >
       {label}
     </a>
@@ -165,7 +167,7 @@ export function DashboardClient({
     initialMeetings[0]?.id ?? ""
   );
   const [tab, setTab] = useState<TabId>(() =>
-    initialMeetings.length > 0 ? "results" : "meetings"
+    initialMeetings.length > 0 ? "resumen" : "meetings"
   );
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [selectedQ, setSelectedQ] = useState<string>("");
@@ -237,11 +239,7 @@ export function DashboardClient({
   }, [meetingId, refreshQuestions]);
 
   useEffect(() => {
-    if (
-      meetings.length === 0 &&
-      tab !== "meetings" &&
-      tab !== "transcription"
-    ) {
+    if (meetings.length === 0 && tab !== "meetings") {
       setTab("meetings");
     }
   }, [meetings.length, tab]);
@@ -344,6 +342,8 @@ export function DashboardClient({
           dateInputToMeetingDateTime(dateCapture)
         ).toISOString(),
         createdAt: new Date().toISOString(),
+        actaStepsCompleted: 0,
+        actaStepCompletedAt: [null, null, null, null, null, null],
       },
       ...prev,
     ]);
@@ -539,24 +539,32 @@ export function DashboardClient({
   const selectedQuestionRow = questions.find((q) => q.id === selectedQ);
 
   return (
-    <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0f1419]">
-      <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/90 px-4 py-4 backdrop-blur">
+    <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#f4f6f9]">
+      <header className="shrink-0 border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-white">Panel de votación</h1>
-          <p className="text-xs text-zinc-500">
-            Resultados en vivo y gestión de asambleas
+          <h1 className="text-lg font-semibold text-slate-900">
+            {tab === "resumen"
+              ? "Resumen"
+              : activeMeeting
+                ? activeMeeting.title
+                : "Panel de votación"}
+          </h1>
+          <p className="text-xs text-slate-500">
+            {tab === "resumen"
+              ? "Estado de actas y seguimiento de tus asambleas"
+              : "Resultados en vivo y gestión de asambleas"}
           </p>
-          {activeMeeting ? (
-            <p className="mt-1 text-sm text-zinc-300">
-              <span className="text-zinc-500">Asamblea activa:</span>{" "}
+          {tab === "resumen" ? null : activeMeeting ? (
+            <p className="mt-1 text-sm text-slate-700">
+              <span className="text-slate-500">Asamblea activa:</span>{" "}
               {activeMeeting.title}
               {formatMeetingCalendarDate(activeMeeting.meetingDate)
                 ? ` · ${formatMeetingCalendarDate(activeMeeting.meetingDate)}`
                 : ""}
             </p>
           ) : (
-            <p className="mt-1 text-sm text-amber-400/90">
+            <p className="mt-1 text-sm text-amber-700">
               No hay asamblea seleccionada. Créala o elígela en{" "}
               <strong className="font-medium">Asamblea</strong>.
             </p>
@@ -564,15 +572,15 @@ export function DashboardClient({
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <p className="text-right text-xs text-zinc-500">
+              <p className="text-right text-xs text-slate-500">
                 {userName ? (
-                  <span className="text-zinc-300">{userName}</span>
+                  <span className="text-slate-700">{userName}</span>
                 ) : null}
                 {userName && userEmail ? (
-                  <span className="text-zinc-600"> · </span>
+                  <span className="text-slate-600"> · </span>
                 ) : null}
                 {userEmail ? (
-                  <span className="font-mono text-zinc-400">{userEmail}</span>
+                  <span className="font-mono text-slate-600">{userEmail}</span>
                 ) : null}
               </p>
               <button
@@ -580,7 +588,7 @@ export function DashboardClient({
                 onClick={() =>
                   void signOut({ callbackUrl: "/login", redirect: true })
                 }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
               >
                 <LogOut className="h-3.5 w-3.5" aria-hidden />
                 Cerrar sesión
@@ -591,7 +599,7 @@ export function DashboardClient({
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-900 bg-zinc-950 py-3 min-h-0">
+        <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white py-3 min-h-0">
           <nav
             className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2"
             aria-label="Secciones"
@@ -605,8 +613,8 @@ export function DashboardClient({
                   onClick={() => setTab(id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
                     active
-                      ? "bg-zinc-800 text-white"
-                      : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
                   <Icon {...ICON} aria-hidden />
@@ -615,14 +623,14 @@ export function DashboardClient({
               );
             })}
           </nav>
-          <div className="mt-auto border-t border-zinc-800 px-2 pt-2">
+          <div className="mt-auto border-t border-slate-200 px-2 pt-2">
             <button
               type="button"
               onClick={() => setTab("export")}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
                 tab === "export"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
               <FileDown {...ICON} aria-hidden />
@@ -633,18 +641,28 @@ export function DashboardClient({
 
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-8">
           {toast ? (
-            <div className="mb-4 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 whitespace-pre-wrap">
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800 whitespace-pre-wrap">
               {toast}
             </div>
           ) : null}
 
+          {tab === "resumen" ? (
+            <DashboardResumenView
+              meetings={meetings}
+              activeMeetingId={meetingId}
+              userName={userName}
+              userEmail={userEmail}
+              onGoExport={() => setTab("export")}
+            />
+          ) : null}
+
           {tab === "meetings" ? (
             <div className="mx-auto max-w-3xl space-y-8">
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                <h2 className="text-base font-semibold text-white">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
+                <h2 className="text-base font-semibold text-slate-900">
                   Nueva asamblea
                 </h2>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-slate-500">
                   Define título y fecha; luego podrás crear preguntas e importar
                   asistentes.
                 </p>
@@ -657,10 +675,10 @@ export function DashboardClient({
                     placeholder="Título (ej. Asamblea ordinaria 2025)"
                     value={newMeetingTitle}
                     onChange={(e) => setNewMeetingTitle(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   />
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-zinc-500">
+                    <label className="text-xs font-medium text-slate-500">
                       Fecha (día, mes y año)
                     </label>
                     <input
@@ -668,14 +686,14 @@ export function DashboardClient({
                       type="date"
                       value={newMeetingDate}
                       onChange={(e) => setNewMeetingDate(e.target.value)}
-                      className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                     />
                   </div>
                   <div className="sm:col-span-2">
                     <button
                       type="submit"
                       disabled={busy}
-                      className="rounded-lg bg-[#00C9A7] px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                      className="rounded-lg bg-[#00C9A7] px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-50"
                     >
                       Crear asamblea
                     </button>
@@ -683,11 +701,11 @@ export function DashboardClient({
                 </form>
               </section>
 
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                <h2 className="text-base font-semibold text-white">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
+                <h2 className="text-base font-semibold text-slate-900">
                   Tus asambleas
                 </h2>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-slate-500">
                   Elige cuál usar para preguntas, CSV y exportación. Usa el lápiz
                   para cambiar el nombre o la fecha sin perder datos. Puedes
                   desactivar una asamblea (icono de prohibido): deja de mostrarse
@@ -695,7 +713,7 @@ export function DashboardClient({
                   base.
                 </p>
                 {meetings.length === 0 ? (
-                  <p className="mt-6 text-sm text-zinc-500">
+                  <p className="mt-6 text-sm text-slate-500">
                     Aún no hay asambleas. Crea la primera arriba.
                   </p>
                 ) : (
@@ -710,7 +728,7 @@ export function DashboardClient({
                           className={`flex min-h-[4.5rem] items-stretch gap-0 overflow-hidden rounded-xl border transition ${
                             selected
                               ? "border-[#1E6FFF] bg-[#1E6FFF]/10 ring-1 ring-[#1E6FFF]/40"
-                              : "border-zinc-700 bg-zinc-950/50 hover:border-zinc-600"
+                              : "border-slate-200 bg-slate-50 hover:border-slate-300"
                           }`}
                         >
                           {isEditing ? (
@@ -724,12 +742,12 @@ export function DashboardClient({
                                 onChange={(e) =>
                                   setEditMeetingTitle(e.target.value)
                                 }
-                                className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-white"
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
                                 placeholder="Título de la asamblea"
                                 aria-label="Título de la asamblea"
                               />
                               <div>
-                                <label className="text-xs font-medium text-zinc-500">
+                                <label className="text-xs font-medium text-slate-500">
                                   Fecha (día, mes y año)
                                 </label>
                                 <input
@@ -738,14 +756,14 @@ export function DashboardClient({
                                   onChange={(e) =>
                                     setEditMeetingDate(e.target.value)
                                   }
-                                  className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-white"
+                                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
                                 />
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <button
                                   type="submit"
                                   disabled={busy}
-                                  className="rounded-lg bg-[#00C9A7] px-3 py-1.5 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                                  className="rounded-lg bg-[#00C9A7] px-3 py-1.5 text-sm font-medium text-slate-900 disabled:opacity-50"
                                 >
                                   Guardar
                                 </button>
@@ -753,7 +771,7 @@ export function DashboardClient({
                                   type="button"
                                   disabled={busy}
                                   onClick={cancelEditMeeting}
-                                  className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 hover:bg-slate-200 disabled:opacity-50"
                                 >
                                   Cancelar
                                 </button>
@@ -765,9 +783,9 @@ export function DashboardClient({
                               onClick={() => setMeetingId(m.id)}
                               className="min-w-0 flex-1 px-4 py-3 text-left"
                             >
-                              <p className="font-medium text-white">{m.title}</p>
+                              <p className="font-medium text-slate-900">{m.title}</p>
                               {fecha ? (
-                                <p className="mt-0.5 text-xs text-zinc-500">
+                                <p className="mt-0.5 text-xs text-slate-500">
                                   {fecha}
                                 </p>
                               ) : null}
@@ -788,7 +806,7 @@ export function DashboardClient({
                                 e.stopPropagation();
                                 startEditMeeting(m);
                               }}
-                              className="shrink-0 border-l border-zinc-700/80 px-3 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+                              className="shrink-0 border-l border-slate-200 px-3 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 disabled:opacity-40"
                             >
                               <Pencil {...ICON} className="h-5 w-5" />
                             </button>
@@ -802,7 +820,7 @@ export function DashboardClient({
                               e.stopPropagation();
                               void onDeactivateMeeting(m.id, m.title);
                             }}
-                            className="shrink-0 border-l border-zinc-700/80 px-3 text-zinc-500 transition hover:bg-amber-950/35 hover:text-amber-300 disabled:opacity-40"
+                            className="shrink-0 border-l border-slate-200 px-3 text-slate-500 transition hover:bg-amber-50 hover:text-amber-800 disabled:opacity-40"
                           >
                             <Ban {...ICON} className="h-5 w-5" />
                           </button>
@@ -820,11 +838,11 @@ export function DashboardClient({
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap gap-3">
                   <div>
-                    <label className="block text-xs text-zinc-500">Pregunta</label>
+                    <label className="block text-xs text-slate-500">Pregunta</label>
                     <select
                       value={selectedQ}
                       onChange={(e) => setSelectedQ(e.target.value)}
-                      className="mt-1 min-w-[220px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                      className="mt-1 min-w-[220px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
                     >
                       {questions.length === 0 ? (
                         <option value="">Sin preguntas</option>
@@ -842,7 +860,7 @@ export function DashboardClient({
                       type="button"
                       disabled={busy}
                       onClick={() => onToggleOpen(selectedQuestionRow)}
-                      className="mt-5 rounded-lg border border-zinc-600 px-3 py-2 text-sm text-white hover:bg-zinc-800 disabled:opacity-50"
+                      className="mt-5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-50"
                     >
                       {selectedQuestionRow.isOpen
                         ? "Cerrar votaciones"
@@ -853,7 +871,7 @@ export function DashboardClient({
                     type="button"
                     onClick={openProjection}
                     disabled={!selectedPublicId}
-                    className="mt-5 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700 disabled:opacity-40"
+                    className="mt-5 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40"
                   >
                     Pantalla de proyección
                   </button>
@@ -867,7 +885,7 @@ export function DashboardClient({
                         selectedQuestionRow.title
                       );
                     }}
-                    className="mt-5 rounded-lg border border-emerald-600/50 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-40"
+                    className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-40"
                   >
                     Ver código QR
                   </button>
@@ -901,12 +919,12 @@ export function DashboardClient({
                       <h3 className="text-sm font-semibold text-emerald-200">
                         Código QR
                       </h3>
-                      <p className="mt-1 text-xs text-zinc-400">{questionQr.title}</p>
+                      <p className="mt-1 text-xs text-slate-600">{questionQr.title}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setQuestionQr(null)}
-                      className="text-xs text-zinc-500 hover:text-zinc-300"
+                      className="text-xs text-slate-500 hover:text-slate-700"
                     >
                       Ocultar
                     </button>
@@ -940,54 +958,54 @@ export function DashboardClient({
                         }
                       >
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                            <h3 className="text-sm font-medium text-zinc-400">
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <h3 className="text-sm font-medium text-slate-600">
                               Participación
                             </h3>
-                            <p className="mt-2 text-4xl font-semibold text-white">
+                            <p className="mt-2 text-4xl font-semibold text-slate-900">
                               {live.participation.participationPercent}%
                             </p>
-                            <p className="mt-1 text-xs text-zinc-500">
+                            <p className="mt-1 text-xs text-slate-500">
                               {live.participation.votedCount} de{" "}
                               {live.participation.totalAssistants} asistentes
                               registrados han votado
                             </p>
-                            <p className="mt-4 text-xs text-zinc-500">
+                            <p className="mt-4 text-xs text-slate-500">
                               Estado:{" "}
                               <span
                                 className={
                                   live.question.isOpen
-                                    ? "text-emerald-400"
-                                    : "text-amber-400"
+                                    ? "text-emerald-600"
+                                    : "text-amber-600"
                                 }
                               >
                                 {live.question.isOpen ? "Abierta" : "Cerrada"}
                               </span>
                             </p>
                           </div>
-                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                            <h3 className="text-sm font-medium text-zinc-400">
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <h3 className="text-sm font-medium text-slate-600">
                               Resumen
                             </h3>
-                            <p className="mt-2 text-lg text-white">
+                            <p className="mt-2 text-lg text-slate-900">
                               {live.question.title}
                             </p>
-                            <p className="mt-2 text-sm text-zinc-500">
+                            <p className="mt-2 text-sm text-slate-500">
                               Total votos: {live.total}
                               {live.winner && !live.tie ? (
-                                <span className="ml-2 text-emerald-400">
+                                <span className="ml-2 text-emerald-600">
                                   Ganador: {live.winner}
                                 </span>
                               ) : null}
                               {live.tie ? (
-                                <span className="ml-2 text-amber-400">
+                                <span className="ml-2 text-amber-600">
                                   Empate
                                 </span>
                               ) : null}
                             </p>
                           </div>
-                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                            <h3 className="mb-4 text-sm font-medium text-zinc-400">
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <h3 className="mb-4 text-sm font-medium text-slate-600">
                               Gráfico de barras
                             </h3>
                             <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
@@ -999,11 +1017,11 @@ export function DashboardClient({
                                 >
                                   <CartesianGrid
                                     strokeDasharray="3 3"
-                                    stroke="#27272a"
+                                    stroke="#e2e8f0"
                                   />
                                   <XAxis
                                     dataKey="label"
-                                    stroke="#a1a1aa"
+                                    stroke="#64748b"
                                     tick={{ fontSize: 10 }}
                                     interval={0}
                                     angle={-32}
@@ -1012,7 +1030,7 @@ export function DashboardClient({
                                     tickMargin={6}
                                   />
                                   <YAxis
-                                    stroke="#a1a1aa"
+                                    stroke="#64748b"
                                     allowDecimals={false}
                                     domain={[0, "auto"]}
                                   />
@@ -1043,8 +1061,8 @@ export function DashboardClient({
                               </ResponsiveContainer>
                             </div>
                           </div>
-                          <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                            <h3 className="mb-4 text-sm font-medium text-zinc-400">
+                          <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <h3 className="mb-4 text-sm font-medium text-slate-600">
                               Gráfico circular
                             </h3>
                             <div className="h-64 min-h-[220px] w-full flex-1 sm:h-72">
@@ -1062,7 +1080,7 @@ export function DashboardClient({
                                     isAnimationActive={false}
                                     animationDuration={0}
                                     labelLine={{
-                                      stroke: "#a1a1aa",
+                                      stroke: "#94a3b8",
                                       strokeWidth: 1,
                                     }}
                                     label={PieResultsSectorLabel}
@@ -1085,16 +1103,16 @@ export function DashboardClient({
                       </div>
                       {resultsLoading ? (
                         <div
-                          className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-zinc-950/35 backdrop-blur-sm"
+                          className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm"
                           aria-busy="true"
                           aria-live="polite"
                         >
-                          <div className="flex flex-col items-center gap-3 rounded-xl border border-zinc-600 bg-zinc-900/95 px-10 py-8 shadow-2xl">
+                          <div className="flex flex-col items-center gap-3 rounded-xl border border-slate-300 bg-white px-10 py-8 shadow-2xl">
                             <Loader2
                               className="h-9 w-9 animate-spin text-[#1E6FFF]"
                               aria-hidden
                             />
-                            <p className="text-sm font-medium text-white">
+                            <p className="text-sm font-medium text-slate-900">
                               Cargando resultados
                             </p>
                           </div>
@@ -1102,23 +1120,23 @@ export function DashboardClient({
                       ) : null}
                     </>
                   ) : resultsLoading ? (
-                    <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-sm">
+                    <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-slate-200 bg-white backdrop-blur-sm">
                       <Loader2
                         className="h-9 w-9 animate-spin text-[#1E6FFF]"
                         aria-hidden
                       />
-                      <p className="text-sm font-medium text-white">
+                      <p className="text-sm font-medium text-slate-900">
                         Cargando resultados
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-zinc-500">
+                    <p className="text-sm text-slate-500">
                       Cargando resultados…
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-slate-500">
                   {questions.length === 0
                     ? "Crea una pregunta en la pestaña Crear pregunta."
                     : "Selecciona una pregunta para ver los resultados."}
@@ -1130,17 +1148,17 @@ export function DashboardClient({
           {meetings.length > 0 && tab === "voteLog" ? (
             <section className="mx-auto max-w-6xl space-y-5">
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-slate-900">
                   Registro de votos
                 </h2>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-slate-500">
                   Elige una pregunta para ver solo los votos de esa pregunta
                   (unidad y opción de voto). Puedes descargar el mismo detalle en PDF.
                 </p>
                 {activeMeeting ? (
-                  <p className="mt-2 text-xs text-zinc-600">
+                  <p className="mt-2 text-xs text-slate-600">
                     Asamblea:{" "}
-                    <span className="text-zinc-400">{activeMeeting.title}</span>
+                    <span className="text-slate-600">{activeMeeting.title}</span>
                   </p>
                 ) : null}
               </div>
@@ -1148,13 +1166,13 @@ export function DashboardClient({
               {questions.length > 0 ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                   <label className="flex min-w-[min(100%,280px)] flex-1 flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-zinc-400">
+                    <span className="font-medium text-slate-600">
                       Filtrar por pregunta
                     </span>
                     <select
                       value={voteLogQuestionId}
                       onChange={(e) => setVoteLogQuestionId(e.target.value)}
-                      className="rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2.5 text-white outline-none ring-[#1E6FFF]/40 focus:ring-2"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none ring-[#1E6FFF]/40 focus:ring-2"
                     >
                       <option value="">Selecciona una pregunta</option>
                       {questions.map((q) => (
@@ -1167,7 +1185,7 @@ export function DashboardClient({
                   {voteLogQuestionId ? (
                     <a
                       href={`/api/export/registro-votes-pdf?meetingId=${encodeURIComponent(meetingId)}&questionId=${encodeURIComponent(voteLogQuestionId)}`}
-                      className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-800/80 px-4 text-sm font-medium text-white transition-colors hover:border-[#1E6FFF]/50 hover:bg-zinc-800"
+                      className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-900 transition-colors hover:border-[#1E6FFF]/50 hover:bg-slate-50"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -1178,7 +1196,7 @@ export function DashboardClient({
                     <button
                       type="button"
                       disabled
-                      className="inline-flex h-[42px] shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 text-sm font-medium text-zinc-500"
+                      className="inline-flex h-[42px] shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-500"
                     >
                       <FileDown
                         className="h-4 w-4 shrink-0 opacity-50"
@@ -1191,68 +1209,68 @@ export function DashboardClient({
               ) : null}
 
               {voteLogLoading ? (
-                <div className="flex min-h-[200px] items-center justify-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 py-12">
+                <div className="flex min-h-[200px] items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-12">
                   <Loader2
                     className="h-6 w-6 shrink-0 animate-spin text-[#1E6FFF]"
                     aria-hidden
                   />
-                  <span className="text-sm text-zinc-400">
+                  <span className="text-sm text-slate-600">
                     Cargando votos…
                   </span>
                 </div>
               ) : questions.length === 0 ? (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center">
-                  <p className="text-sm text-zinc-400">
+                <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center">
+                  <p className="text-sm text-slate-600">
                     Crea una pregunta en la pestaña Crear pregunta para ver el
                     registro de votos.
                   </p>
                 </div>
               ) : !voteLogQuestionId ? (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center">
-                  <p className="text-sm text-zinc-400">
+                <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center">
+                  <p className="text-sm text-slate-600">
                     Selecciona una pregunta en el menú superior para cargar el
                     registro de votos.
                   </p>
                 </div>
               ) : voteLogRows.length === 0 ? (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center">
-                  <p className="text-sm text-zinc-400">
+                <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center">
+                  <p className="text-sm text-slate-600">
                     Aún no hay votos registrados para esta pregunta.
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/40 shadow-sm">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[420px] border-collapse text-left text-sm">
                       <thead>
-                        <tr className="border-b border-zinc-800 bg-zinc-900/90">
+                        <tr className="border-b border-slate-200 bg-slate-100">
                           <th
                             scope="col"
-                            className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                            className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
                           >
                             Unidad
                           </th>
                           <th
                             scope="col"
-                            className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                            className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
                           >
                             Voto
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-800/90">
+                      <tbody className="divide-y divide-slate-200">
                         {voteLogRows.map((row) => (
                           <tr
                             key={row.id}
-                            className="transition-colors hover:bg-zinc-900/50"
+                            className="transition-colors hover:bg-slate-50"
                           >
-                            <td className="max-w-[200px] px-4 py-3 align-top font-medium text-white">
+                            <td className="max-w-[200px] px-4 py-3 align-top font-medium text-slate-900">
                               <span className="line-clamp-3 sm:line-clamp-none font-mono tabular-nums">
                                 {row.unidad}
                               </span>
                             </td>
-                            <td className="whitespace-nowrap px-4 py-3 align-top text-zinc-200">
-                              <span className="inline-flex rounded-md border border-zinc-700 bg-zinc-900/80 px-2.5 py-1 text-xs font-medium text-emerald-100/95">
+                            <td className="whitespace-nowrap px-4 py-3 align-top text-slate-800">
+                              <span className="inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-900">
                                 {row.voteLabel}
                               </span>
                             </td>
@@ -1261,7 +1279,7 @@ export function DashboardClient({
                       </tbody>
                     </table>
                   </div>
-                  <p className="border-t border-zinc-800 bg-zinc-900/50 px-4 py-2 text-center text-xs text-zinc-500">
+                  <p className="border-t border-slate-200 bg-slate-50 px-4 py-2 text-center text-xs text-slate-500">
                     {voteLogRows.length}{" "}
                     {voteLogRows.length === 1 ? "registro" : "registros"}
                   </p>
@@ -1287,15 +1305,15 @@ export function DashboardClient({
               >
               <form
                 onSubmit={onCreateQuestion}
-                className="flex h-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-3"
+                className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 space-y-3"
               >
-                <h2 className="text-base font-semibold text-white">
+                <h2 className="text-base font-semibold text-slate-900">
                   Nueva pregunta
                 </h2>
                 <div>
                   <label
                     htmlFor="create-question-meeting"
-                    className="block text-xs font-medium uppercase tracking-wide text-zinc-500"
+                    className="block text-xs font-medium uppercase tracking-wide text-slate-500"
                   >
                     Asamblea
                   </label>
@@ -1304,7 +1322,7 @@ export function DashboardClient({
                     value={meetingId}
                     onChange={(e) => setMeetingId(e.target.value)}
                     required
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
                   >
                     {meetings.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -1315,7 +1333,7 @@ export function DashboardClient({
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1.5 text-xs text-zinc-500">
+                  <p className="mt-1.5 text-xs text-slate-500">
                     La pregunta se guarda enlazada a esta asamblea. Los
                     asistentes que importes en <strong>Asistentes</strong> deben
                     ser de la <strong>misma</strong> asamblea para que los
@@ -1327,21 +1345,21 @@ export function DashboardClient({
                   placeholder="Título de la pregunta"
                   value={qTitle}
                   onChange={(e) => setQTitle(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                 />
                 <textarea
                   placeholder="Descripción (opcional)"
                   value={qDesc}
                   onChange={(e) => setQDesc(e.target.value)}
                   rows={2}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                 />
                 <select
                   value={qType}
                   onChange={(e) =>
                     setQType(e.target.value as typeof qType)
                   }
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
                 >
                   <option value="yes_no">Sí / No</option>
                   <option value="accept_decline">Acepto / No acepto</option>
@@ -1358,9 +1376,9 @@ export function DashboardClient({
                       value={qOptionsText}
                       onChange={(e) => setQOptionsText(e.target.value)}
                       rows={4}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                     />
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-slate-500">
                       Mínimo 2 opciones. Puedes usar una línea por nombre o varios
                       nombres en una sola línea separados por coma o punto y coma.
                     </p>
@@ -1378,23 +1396,23 @@ export function DashboardClient({
               {questions.length > 0 || questionQr ? (
                 <div className="flex min-h-0 w-full min-w-0 flex-col gap-6">
                   {questions.length > 0 ? (
-                    <div className="flex min-h-0 min-w-0 w-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                      <h3 className="text-sm font-semibold text-white">
+                    <div className="flex min-h-0 min-w-0 w-full flex-col rounded-2xl border border-slate-200 bg-white p-6">
+                      <h3 className="text-sm font-semibold text-slate-900">
                         Ver código QR de una pregunta
                       </h3>
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-slate-500">
                         Elige la pregunta y pulsa el botón para mostrar el QR
                         otra vez.
                       </p>
                       <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                         <div className="min-w-0 w-full flex-1 sm:min-w-[12rem]">
-                          <label className="block text-xs text-zinc-500">
+                          <label className="block text-xs text-slate-500">
                             Pregunta
                           </label>
                           <select
                             value={selectedQ}
                             onChange={(e) => setSelectedQ(e.target.value)}
-                            className="mt-1 w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                            className="mt-1 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
                           >
                             {questions.map((q) => (
                               <option key={q.id} value={q.id}>
@@ -1414,7 +1432,7 @@ export function DashboardClient({
                               selectedQuestionRow.title
                             );
                           }}
-                          className="w-full shrink-0 rounded-lg border border-emerald-600/50 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-40 sm:w-auto"
+                          className="w-full shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-40 sm:w-auto"
                         >
                           Ver código QR
                         </button>
@@ -1435,14 +1453,14 @@ export function DashboardClient({
                           <h3 className="text-sm font-semibold text-emerald-200">
                             Código QR
                           </h3>
-                          <p className="mt-1 text-xs text-zinc-400">
+                          <p className="mt-1 text-xs text-slate-600">
                             {questionQr.title}
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => setQuestionQr(null)}
-                          className="text-xs text-zinc-500 hover:text-zinc-300"
+                          className="text-xs text-slate-500 hover:text-slate-700"
                         >
                           Ocultar
                         </button>
@@ -1470,11 +1488,11 @@ export function DashboardClient({
           ) : null}
 
           {meetings.length > 0 && tab === "export" ? (
-            <section className="mx-auto max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-              <h2 className="text-base font-semibold text-white">
+            <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6">
+              <h2 className="text-base font-semibold text-slate-900">
                 Exportar acta (PDF)
               </h2>
-              <p className="mt-2 text-sm text-zinc-500">
+              <p className="mt-2 text-sm text-slate-500">
                 Solo incluye <strong>preguntas activas</strong> en el panel. Por
                 cada una: participación, resumen, ganador y gráficos de barras y
                 circular (como en Resultados). Las desactivadas no se exportan.
@@ -1491,15 +1509,15 @@ export function DashboardClient({
           ) : null}
 
           {meetings.length > 0 && tab === "assistants" ? (
-            <section className="mx-auto max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-              <h2 className="text-base font-semibold text-white">
+            <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6">
+              <h2 className="text-base font-semibold text-slate-900">
                 Importar asistentes (CSV)
               </h2>
-              <div className="mt-3 rounded-xl border border-zinc-700 bg-zinc-950/50 p-4">
-                <p className="text-sm font-medium text-zinc-200">
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-medium text-slate-800">
                   Plantilla y formato
                 </p>
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="mt-2 text-xs text-slate-500">
                   Descarga el archivo de ejemplo, edítalo en Excel o similar y
                   súbelo aquí. <strong>Una fila = una unidad.</strong> El código
                   de votación es el que entregarás a cada copropietario.
@@ -1511,10 +1529,10 @@ export function DashboardClient({
                 >
                   Descargar plantilla CSV
                 </a>
-                <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/80">
-                  <table className="w-full min-w-[320px] text-left text-xs text-zinc-300">
+                <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50">
+                  <table className="w-full min-w-[320px] text-left text-xs text-slate-700">
                     <thead>
-                      <tr className="border-b border-zinc-700 text-zinc-500">
+                      <tr className="border-b border-slate-200 text-slate-500">
                         <th className="px-3 py-2 font-medium">Unidad</th>
                         <th className="px-3 py-2 font-medium">Nombre</th>
                         <th className="px-3 py-2 font-medium">
@@ -1522,8 +1540,8 @@ export function DashboardClient({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="font-mono text-[11px] text-zinc-400">
-                      <tr className="border-b border-zinc-800/80">
+                    <tbody className="font-mono text-[11px] text-slate-600">
+                      <tr className="border-b border-slate-200/80">
                         <td className="px-3 py-2">38503</td>
                         <td className="px-3 py-2">Ejemplo copropietario 1</td>
                         <td className="px-3 py-2">CODE001</td>
@@ -1536,11 +1554,11 @@ export function DashboardClient({
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-3 text-xs text-zinc-600">
+                <p className="mt-3 text-xs text-slate-600">
                   <strong>Unidad:</strong> torre y apartamento en un solo valor
                   (ej. 38 + 503 → 38503). También puedes usar columnas separadas{" "}
-                  <span className="font-mono text-zinc-500">Torre</span> y{" "}
-                  <span className="font-mono text-zinc-500">Apto</span> en lugar
+                  <span className="font-mono text-slate-500">Torre</span> y{" "}
+                  <span className="font-mono text-slate-500">Apto</span> en lugar
                   de Unidad. Los encabezados deben contener esas palabras clave
                   para que el sistema los reconozca.
                 </p>
@@ -1552,7 +1570,7 @@ export function DashboardClient({
                   type="file"
                   name="file"
                   accept=".csv,text/csv"
-                  className="block text-sm text-zinc-300"
+                  className="block text-sm text-slate-700"
                   onChange={() => setAssistantsCsvImport({ phase: "idle" })}
                 />
                 <button
@@ -1560,7 +1578,7 @@ export function DashboardClient({
                   disabled={
                     assistantsCsvImport.phase === "uploading" || !meetingId
                   }
-                  className="rounded-lg bg-[#00C9A7] px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                  className="rounded-lg bg-[#00C9A7] px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-50"
                 >
                   {assistantsCsvImport.phase === "uploading"
                     ? "Subiendo…"
@@ -1570,17 +1588,17 @@ export function DashboardClient({
 
               {assistantsCsvImport.phase === "uploading" ? (
                 <div
-                  className="mt-5 rounded-xl border border-zinc-700 bg-zinc-900/60 p-4"
+                  className="mt-5 rounded-xl border border-slate-200 bg-slate-50/60 p-4"
                   role="status"
                   aria-live="polite"
                 >
-                  <p className="text-sm font-medium text-zinc-200">
+                  <p className="text-sm font-medium text-slate-800">
                     Procesando CSV…
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-slate-500">
                     Enviando archivo y guardando asistentes en la base de datos.
                   </p>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800">
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
                     <div
                       className="assistants-csv-progress-bar h-full rounded-full bg-[#00C9A7]"
                       aria-hidden
@@ -1591,13 +1609,13 @@ export function DashboardClient({
 
               {assistantsCsvImport.phase === "success" ? (
                 <div
-                  className="mt-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4"
+                  className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
                   role="status"
                 >
-                  <p className="text-sm font-semibold text-emerald-100">
+                  <p className="text-sm font-semibold text-emerald-900">
                     Importación completada correctamente
                   </p>
-                  <p className="mt-2 text-sm text-emerald-200/90">
+                  <p className="mt-2 text-sm text-emerald-800">
                     Se registraron{" "}
                     <strong>{assistantsCsvImport.imported}</strong> asistente
                     {assistantsCsvImport.imported === 1 ? "" : "s"} en la
@@ -1606,7 +1624,7 @@ export function DashboardClient({
                   <button
                     type="button"
                     onClick={() => setAssistantsCsvImport({ phase: "idle" })}
-                    className="mt-3 text-xs font-medium text-emerald-300 underline-offset-2 hover:underline"
+                    className="mt-3 text-xs font-medium text-emerald-700 underline-offset-2 hover:underline"
                   >
                     Cerrar aviso
                   </button>
@@ -1615,19 +1633,19 @@ export function DashboardClient({
 
               {assistantsCsvImport.phase === "error" ? (
                 <div
-                  className="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4"
+                  className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4"
                   role="alert"
                 >
-                  <p className="text-sm font-semibold text-red-100">
+                  <p className="text-sm font-semibold text-red-900">
                     No se pudo importar el CSV
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-red-200/90">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-red-800">
                     {assistantsCsvImport.message}
                   </p>
                   <button
                     type="button"
                     onClick={() => setAssistantsCsvImport({ phase: "idle" })}
-                    className="mt-3 text-xs font-medium text-red-300 underline-offset-2 hover:underline"
+                    className="mt-3 text-xs font-medium text-red-700 underline-offset-2 hover:underline"
                   >
                     Cerrar aviso
                   </button>
@@ -1636,7 +1654,6 @@ export function DashboardClient({
             </section>
           ) : null}
 
-          {tab === "transcription" ? <TranscriptionTab /> : null}
         </main>
       </div>
     </div>

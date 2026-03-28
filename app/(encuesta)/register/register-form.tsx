@@ -1,59 +1,34 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { registerConjuntoAdminAction } from "@/app/(encuesta)/register-actions";
 import { Building2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-export function LoginForm({
-  administratorHost,
-  defaultCallbackUrl,
-}: {
-  administratorHost: boolean;
-  defaultCallbackUrl: string;
-}) {
+export function RegisterForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = useMemo(() => {
-    const cb = searchParams.get("callbackUrl");
-    if (cb && cb.startsWith("/")) return cb;
-    return defaultCallbackUrl;
-  }, [searchParams, defaultCallbackUrl]);
-
-  const urlError = searchParams.get("error");
-  const registered = searchParams.get("registered");
-
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(() => {
-    if (urlError === "no_admin") {
-      return "Esta cuenta no tiene acceso al panel de administrador Dromi.";
-    }
-    return null;
-  });
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const regEmail = searchParams.get("email");
-  useEffect(() => {
-    if (regEmail) setEmail(decodeURIComponent(regEmail));
-  }, [regEmail]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await signIn("credentials", {
-      email: email.trim(),
-      password,
-      redirect: false,
-    });
+    const fd = new FormData();
+    fd.set("organizationName", organizationName.trim());
+    fd.set("email", email.trim());
+    fd.set("password", password);
+    const res = await registerConjuntoAdminAction(fd);
     setLoading(false);
-    if (res?.error) {
-      setError("Correo o contraseña incorrectos.");
+    if (!res.ok) {
+      setError(res.error);
       return;
     }
-    router.push(callbackUrl.startsWith("/") ? callbackUrl : "/dashboard");
+    router.push(`/login?registered=1&email=${encodeURIComponent(res.email)}`);
     router.refresh();
   }
 
@@ -70,31 +45,40 @@ export function LoginForm({
         </header>
 
         <h1 className="pt-6 text-center text-xl font-semibold text-slate-900">
-          {administratorHost
-            ? "Administrador Dromi"
-            : "Acceso al panel"}
+          Crear usuario — administración
         </h1>
-        {administratorHost ? (
-          <p className="mt-2 text-center text-sm text-slate-500">
-            Solo cuentas autorizadas. Gestión de estado del acta por conjunto.
-          </p>
-        ) : null}
-        {registered === "1" ? (
-          <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm text-emerald-800">
-            Cuenta creada. Inicia sesión con tu correo y contraseña.
-          </p>
-        ) : null}
+        <p className="mt-2 text-center text-sm text-slate-500">
+          Registra el conjunto para acceder al panel de asambleas y votación.
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
             <label
-              htmlFor="login-email"
+              htmlFor="reg-org"
+              className="block text-xs font-semibold uppercase tracking-wide text-slate-500"
+            >
+              Nombre del conjunto
+            </label>
+            <input
+              id="reg-org"
+              name="organizationName"
+              type="text"
+              autoComplete="organization"
+              required
+              value={organizationName}
+              onChange={(e) => setOrganizationName(e.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none ring-slate-400/30 focus:border-slate-400 focus:ring-2"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="reg-email"
               className="block text-xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Correo
             </label>
             <input
-              id="login-email"
+              id="reg-email"
               name="email"
               type="email"
               autoComplete="email"
@@ -106,21 +90,25 @@ export function LoginForm({
           </div>
           <div>
             <label
-              htmlFor="login-password"
+              htmlFor="reg-password"
               className="block text-xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Contraseña
             </label>
             <input
-              id="login-password"
+              id="reg-password"
               name="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none ring-slate-400/30 focus:border-slate-400 focus:ring-2"
             />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Mínimo 8 caracteres.
+            </p>
           </div>
           {error ? (
             <p className="text-sm text-red-600" role="alert">
@@ -132,21 +120,19 @@ export function LoginForm({
             disabled={loading}
             className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
           >
-            {loading ? "Entrando…" : "Entrar"}
+            {loading ? "Creando cuenta…" : "Crear usuario"}
           </button>
         </form>
 
-        {!administratorHost ? (
-          <p className="mt-6 text-center text-sm text-slate-500">
-            ¿Primera vez?{" "}
-            <Link
-              href="/register"
-              className="font-medium text-slate-900 underline-offset-2 hover:underline"
-            >
-              Crear usuario
-            </Link>
-          </p>
-        ) : null}
+        <p className="mt-6 text-center text-sm text-slate-500">
+          ¿Ya tienes cuenta?{" "}
+          <Link
+            href="/login"
+            className="font-medium text-slate-900 underline-offset-2 hover:underline"
+          >
+            Entrar
+          </Link>
+        </p>
       </div>
     </div>
   );
