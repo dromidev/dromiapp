@@ -502,23 +502,43 @@ export async function importAssistantsCsvAction(formData: FormData) {
         map.apartment = h;
       }
     }
-    if (k.includes("nombre")) map.name = h;
-    /** Código único por apartamento / copropietario (tú lo defines en el CSV). */
+    const nameKey = k.replace(/\s+/g, "");
+    if (
+      k.includes("nombre") ||
+      k === "full_name" ||
+      k === "fullname" ||
+      nameKey === "fullname" ||
+      k === "name"
+    ) {
+      map.name = h;
+    }
+    /** Código único por apartamento / copropietario (plano en CSV; se hashea al guardar). */
+    let codeP = 0;
     if (k.includes("codigo")) {
-      let p = 0;
-      if (k.includes("votacion") || k.includes("voto")) p = 3;
+      if (k.includes("votacion") || k.includes("voto")) codeP = 3;
       else if (
         k.includes("apartamento") ||
         k.includes("apto") ||
         k.includes("unidad") ||
         k.includes("copropietario")
       ) {
-        p = 2;
-      } else if (k === "codigo" || /^codigo\s+/.test(k)) p = 1;
-      if (p > codePriority) {
-        codePriority = p;
-        codeHeader = h;
-      }
+        codeP = 2;
+      } else if (k === "codigo" || /^codigo\s+/.test(k)) codeP = 1;
+    } else if (k === "code_hash" || k === "codehash") {
+      /** Exportes SQL/empresa: aunque se llame code_hash, aquí va el código en claro. */
+      codeP = 5;
+    } else if (
+      k === "voting_code" ||
+      k === "vote_code" ||
+      k === "assistant_code"
+    ) {
+      codeP = 4;
+    } else if (k === "code") {
+      codeP = 3;
+    }
+    if (codeP > codePriority) {
+      codePriority = codeP;
+      codeHeader = h;
     }
   }
   if (codeHeader) map.code = codeHeader;
@@ -532,7 +552,7 @@ export async function importAssistantsCsvAction(formData: FormData) {
     return {
       ok: false as const,
       error:
-        "El CSV debe incluir: Nombre, código único de votación (p. ej. Codigo de Votacion), y unidad: columna Unidad (o Torre+Apto en una sola columna), o columnas Torre y Apto/Apartamento separadas (se concatenan).",
+        "El CSV debe incluir: nombre (Nombre, nombre completo o full_name), código único de votación (p. ej. Codigo de Votacion o code_hash si viene de export), y unidad: columna Unidad (o Torre+Apto en una sola columna), o columnas Torre y Apto/Apartamento separadas (se concatenan). Las columnas id, meeting_id y created_at se ignoran.",
     };
   }
 
