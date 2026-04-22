@@ -146,7 +146,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
   if (phase === "hydrating") {
     return (
       <div
-        className="flex min-h-[120px] w-full items-center justify-center px-2 text-center text-sm text-zinc-500"
+        className="flex min-h-[120px] w-full items-center justify-center px-2 text-center text-sm text-zinc-400"
         aria-busy="true"
       >
         Cargando…
@@ -169,7 +169,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
         <button
           type="button"
           onClick={resetForAnotherAssistant}
-          className="mx-auto mt-6 w-full max-w-xs rounded-lg border border-amber-400/50 bg-amber-950/40 px-4 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-950/70"
+          className="mx-auto mt-6 w-auto min-w-[10rem] max-w-xs rounded-lg border border-amber-400/50 bg-amber-950/40 px-6 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-950/70"
         >
           Ingresar otro código
         </button>
@@ -194,7 +194,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
         <button
           type="button"
           onClick={resetForAnotherAssistant}
-          className="mx-auto mt-4 w-full max-w-xs rounded-lg border border-emerald-400/50 bg-emerald-950/40 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-950/70"
+          className="mx-auto mt-4 w-auto min-w-[10rem] max-w-xs rounded-lg border border-emerald-400/50 bg-emerald-950/40 px-6 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-950/70"
         >
           Ingresar otro código
         </button>
@@ -216,7 +216,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
             {question.title}
           </h2>
           {question.description ? (
-            <p className="mt-2 text-pretty text-sm text-zinc-400 sm:text-base">
+            <p className="mt-2 text-pretty text-sm text-white/90 sm:text-base">
               {question.description}
             </p>
           ) : null}
@@ -236,14 +236,14 @@ export function VoteForm({ publicId }: { publicId: string }) {
           </div>
         ) : null}
         {!noMcOptions ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col items-center gap-3">
             {choices.map((c, idx) => (
               <button
                 key={`${idx}-${c}`}
                 type="button"
                 disabled={loading}
                 onClick={() => onVote(c)}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-center text-sm font-medium text-white transition hover:border-[#1E6FFF] hover:bg-zinc-800 disabled:opacity-50 sm:text-base"
+                className="w-full max-w-xs rounded-xl bg-[#1E6FFF] px-5 py-4 text-center text-sm font-medium text-white shadow-sm transition hover:bg-[#185dcc] disabled:opacity-50 sm:text-base"
               >
                 {c}
               </button>
@@ -267,11 +267,11 @@ export function VoteForm({ publicId }: { publicId: string }) {
       <div className="w-full max-w-[17.5rem] space-y-1 sm:max-w-xs">
         <label
           htmlFor="assistant-code"
-          className="block text-center text-sm font-medium leading-snug text-zinc-200"
+          className="block text-center text-sm font-medium leading-snug text-white"
         >
           Código que te entregó la administración
         </label>
-        <p className="text-balance px-0.5 text-center text-xs leading-relaxed text-zinc-500">
+        <p className="text-balance px-0.5 text-center text-xs leading-relaxed text-zinc-400">
           Es el código de tu unidad o copropietario para esta votación.
         </p>
         <input
@@ -281,7 +281,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
           required
           autoComplete="off"
           inputMode="text"
-          className="mx-auto mt-3 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-center text-sm text-white outline-none ring-[#1E6FFF]/40 focus:ring-2 sm:py-2"
+          className="mx-auto mt-3 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-center text-sm font-medium text-zinc-900 shadow-sm outline-none ring-[#1E6FFF]/35 placeholder:text-zinc-400 focus:border-[#1E6FFF] focus:ring-2 sm:py-2"
           placeholder=""
         />
       </div>
@@ -296,7 +296,7 @@ export function VoteForm({ publicId }: { publicId: string }) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full max-w-[17.5rem] rounded-lg bg-[#1E6FFF] py-2.5 text-sm font-medium text-white transition hover:bg-[#185dcc] disabled:opacity-60 sm:max-w-xs"
+        className="w-auto min-w-[10.5rem] rounded-lg bg-[#1E6FFF] px-8 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#185dcc] disabled:opacity-60"
       >
         {loading ? "Verificando…" : "Continuar"}
       </button>
