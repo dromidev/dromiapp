@@ -84,7 +84,9 @@ export function ProjectionClient({ publicId }: { publicId: string }) {
               {live.participation.participationPercent}%
             </p>
             <p className="mt-2 text-xs text-zinc-500">
-              {live.participation.votedCount} / {live.participation.totalAssistants} asistentes
+              {live.participation.votedCount}{" "}
+              {live.participation.votedCount === 1 ? "voto" : "votos"} de{" "}
+              {live.participation.totalAssistants} copropietarios registrados.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur md:col-span-2">

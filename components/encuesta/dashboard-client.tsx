@@ -1044,9 +1044,12 @@ export function DashboardClient({
                               {live.participation.participationPercent}%
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
-                              {live.participation.votedCount} de{" "}
-                              {live.participation.totalAssistants} asistentes
-                              registrados han votado
+                              {live.participation.votedCount}{" "}
+                              {live.participation.votedCount === 1
+                                ? "voto"
+                                : "votos"}{" "}
+                              de {live.participation.totalAssistants}{" "}
+                              copropietarios registrados.
                             </p>
                             <p className="mt-4 text-xs text-slate-500">
                               Estado:{" "}
@@ -1674,7 +1677,8 @@ export function DashboardClient({
                     Procesando CSV…
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Enviando archivo y guardando asistentes en la base de datos.
+                    Enviando archivo y guardando copropietarios en la base de
+                    datos.
                   </p>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
                     <div
@@ -1695,7 +1699,8 @@ export function DashboardClient({
                   </p>
                   <p className="mt-2 text-sm text-emerald-800">
                     Se registraron{" "}
-                    <strong>{assistantsCsvImport.imported}</strong> asistente
+                    <strong>{assistantsCsvImport.imported}</strong>{" "}
+                    copropietario
                     {assistantsCsvImport.imported === 1 ? "" : "s"} en la
                     asamblea seleccionada.
                   </p>

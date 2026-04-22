@@ -92,18 +92,20 @@ function RegistroVotosDocument({ data }: { data: RegistroVotosPdfPayload }) {
             {data.totalVotes}
           </Text>
           <Text style={styles.meta}>
-            <Text style={styles.metaStrong}>Total de asistentes registrados: </Text>
+            <Text style={styles.metaStrong}>
+              Total de copropietarios registrados:{" "}
+            </Text>
             {data.totalAssistants}
           </Text>
         </View>
 
         <Text style={styles.h2}>
-          Porcentaje por opción (sobre total de asistentes)
+          Porcentaje por opción (sobre total de copropietarios)
         </Text>
         <View style={styles.tableHeader}>
           <Text style={styles.colOpt}>Opción</Text>
           <Text style={styles.colCount}>Votos</Text>
-          <Text style={styles.colPct}>% sobre asistentes</Text>
+          <Text style={styles.colPct}>% sobre copropietarios</Text>
         </View>
         {data.breakdown.map((b, j) => (
           <View key={j} style={styles.row}>
@@ -126,8 +128,9 @@ function RegistroVotosDocument({ data }: { data: RegistroVotosPdfPayload }) {
         ))}
 
         <Text style={styles.footer}>
-          Documento generado electrónicamente. Los porcentajes sobre asistentes
-          usan el total de unidades registradas en la asamblea como denominador.
+          Documento generado electrónicamente. Los porcentajes sobre
+          copropietarios usan el total de unidades registradas en la asamblea
+          como denominador.
         </Text>
       </Page>
     </Document>

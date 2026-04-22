@@ -369,8 +369,9 @@ function QuestionPage({
           <Text style={styles.cardLabel}>Participación</Text>
           <Text style={styles.bigNumber}>{p.participationPercent}%</Text>
           <Text style={styles.cardBody}>
-            {p.votedCount} de {p.totalAssistants} asistentes registrados han
-            votado
+            {p.votedCount}{" "}
+            {p.votedCount === 1 ? "voto" : "votos"} de {p.totalAssistants}{" "}
+            copropietarios registrados.
           </Text>
           <Text style={styles.cardBody}>
             Estado:{" "}
