@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import {
   motion,
   useInView,
@@ -27,6 +28,12 @@ import {
 
 /** Logo en `public/iamge/` (ruta del proyecto). */
 const DROMI_LOGO_SRC = "/iamge/dromi%20logo.svg";
+
+/** Destino de los envíos del formulario de contacto (FormSubmit reenvía a este buzón). */
+const CONTACT_LANDING_EMAIL = "jesusprieto@snrg.lat";
+const FORMSUBMIT_LANDING = `https://formsubmit.co/${encodeURIComponent(
+  CONTACT_LANDING_EMAIL
+)}`;
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -172,6 +179,25 @@ const testimonials = [
   },
 ];
 
+const testimonioFotos = [
+  {
+    src: "/iamge/testimonios/testimonio-asamblea-1.png",
+    alt: "Asamblea de copropietarios al aire libre, presentación en la fachada del conjunto",
+  },
+  {
+    src: "/iamge/testimonios/testimonio-asamblea-2.png",
+    alt: "Reunión comunitaria con asistentes en sillas, equipo de sonido y conjunto residencial al fondo",
+  },
+  {
+    src: "/iamge/testimonios/testimonio-asamblea-3.png",
+    alt: "Asamblea nocturna con proyección en pantalla y copropietarios atentos",
+  },
+  {
+    src: "/iamge/testimonios/testimonio-asamblea-4.png",
+    alt: "Sesión informativa nocturna con presentación a la comunidad en el parqueadero del conjunto",
+  },
+] as const;
+
 function TestimonialCard({
   name,
   role,
@@ -247,6 +273,13 @@ function InfiniteCarousel() {
 
 export default function HomeLanding() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [contactFormOrigin, setContactFormOrigin] = useState("");
+
+  useEffect(() => {
+    setContactFormOrigin(
+      typeof window !== "undefined" ? window.location.origin : ""
+    );
+  }, []);
 
   const faqs = [
     {
@@ -1014,7 +1047,7 @@ export default function HomeLanding() {
           id="testimonios"
           className="overflow-hidden border-t border-slate-200 py-24"
         >
-          <div className="mx-auto mb-12 max-w-6xl px-6">
+          <div className="mx-auto max-w-6xl px-6">
             <motion.div
               variants={fadeUp}
               initial="hidden"
@@ -1035,12 +1068,43 @@ export default function HomeLanding() {
                 <span className="text-slate-400">quienes ya lo vivieron.</span>
               </h2>
             </motion.div>
+            <motion.div
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={viewOnce}
+              className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2"
+            >
+              {testimonioFotos.map((foto) => (
+                <div
+                  key={foto.src}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm"
+                >
+                  <div className="relative aspect-[4/3] w-full">
+                    <Image
+                      src={foto.src}
+                      alt={foto.alt}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, 50vw"
+                    />
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+            <p
+              className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-slate-500"
+            >
+              Asambleas reales: acompañamiento en sitio, proyección y participación
+              de la comunidad.
+            </p>
           </div>
           <motion.div
             variants={fadeUp}
             initial="hidden"
             whileInView="visible"
             viewport={viewOnce}
+            className="mt-12"
           >
             <InfiniteCarousel />
           </motion.div>
@@ -1259,13 +1323,18 @@ export default function HomeLanding() {
                 </p>
                 <div className="space-y-5">
                   {[
-                    { icon: Mail, label: "Email", value: "hola@dromi.lat" },
+                    {
+                      icon: Mail,
+                      label: "Email",
+                      value: CONTACT_LANDING_EMAIL,
+                      href: `mailto:${CONTACT_LANDING_EMAIL}`,
+                    },
                     {
                       icon: MapPin,
                       label: "Operamos en",
                       value: "Costa Caribe de Colombia",
                     },
-                  ].map(({ icon: Icon, label, value }) => (
+                  ].map(({ icon: Icon, label, value, href }) => (
                     <div key={label} className="flex items-center gap-4">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white">
                         <Icon className="h-4 w-4 text-slate-500" />
@@ -1274,9 +1343,18 @@ export default function HomeLanding() {
                         <p className="mb-0.5 text-[10px] uppercase tracking-widest text-slate-400">
                           {label}
                         </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {value}
-                        </p>
+                        {href ? (
+                          <a
+                            href={href}
+                            className="text-sm font-medium text-slate-900 transition-colors hover:text-slate-600"
+                          >
+                            {value}
+                          </a>
+                        ) : (
+                          <p className="text-sm font-medium text-slate-900">
+                            {value}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1290,62 +1368,108 @@ export default function HomeLanding() {
                 viewport={viewOnce}
                 className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
               >
-                <div className="space-y-4">
-                  {[
-                    {
-                      label: "Nombre completo",
-                      placeholder: "Carlos Rodríguez",
-                      type: "text",
-                    },
-                    {
-                      label: "Correo electrónico",
-                      placeholder: "admin@miconjunto.com",
-                      type: "email",
-                    },
-                    {
-                      label: "WhatsApp",
-                      placeholder: "+57 300 000 0000",
-                      type: "tel",
-                    },
-                    {
-                      label: "Nombre del conjunto",
-                      placeholder: "Conjunto Mirla",
-                      type: "text",
-                    },
-                    {
-                      label: "N.º de unidades aprox.",
-                      placeholder: "48 unidades",
-                      type: "text",
-                    },
-                  ].map(({ label, placeholder, type }) => (
-                    <div key={label}>
-                      <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <form
+                  action={FORMSUBMIT_LANDING}
+                  method="POST"
+                  className="space-y-4"
+                >
+                  <input
+                    type="hidden"
+                    name="_subject"
+                    value="Contacto — landing Dromi (sitio web)"
+                  />
+                  {contactFormOrigin ? (
+                    <input
+                      type="hidden"
+                      name="_next"
+                      value={`${contactFormOrigin}/#contacto?enviado=1`}
+                    />
+                  ) : null}
+                  <input type="text" name="_honey" className="hidden" tabIndex={-1} autoComplete="off" />
+                  {(
+                    [
+                      {
+                        name: "nombre" as const,
+                        label: "Nombre completo",
+                        placeholder: "Carlos Rodríguez",
+                        type: "text" as const,
+                        required: true,
+                      },
+                      {
+                        name: "email" as const,
+                        label: "Correo electrónico",
+                        placeholder: "admin@miconjunto.com",
+                        type: "email" as const,
+                        required: true,
+                      },
+                      {
+                        name: "whatsapp" as const,
+                        label: "WhatsApp",
+                        placeholder: "+57 300 000 0000",
+                        type: "tel" as const,
+                        required: false,
+                      },
+                      {
+                        name: "conjunto" as const,
+                        label: "Nombre del conjunto",
+                        placeholder: "Conjunto Mirla",
+                        type: "text" as const,
+                        required: false,
+                      },
+                      {
+                        name: "unidades" as const,
+                        label: "N.º de unidades aprox.",
+                        placeholder: "48 unidades",
+                        type: "text" as const,
+                        required: false,
+                      },
+                    ] as const
+                  ).map(({ name, label, placeholder, type, required }) => (
+                    <div key={name}>
+                      <label
+                        htmlFor={`contact-${name}`}
+                        className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500"
+                      >
                         {label}
+                        {required ? (
+                          <span className="text-rose-500" aria-hidden>
+                            {" "}
+                            *
+                          </span>
+                        ) : null}
                       </label>
                       <input
+                        id={`contact-${name}`}
+                        name={name}
                         type={type}
+                        required={required}
                         placeholder={placeholder}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
                       />
                     </div>
                   ))}
                   <div>
-                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    <label
+                      htmlFor="contact-mensaje"
+                      className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500"
+                    >
                       ¿En qué podemos ayudarte?
                     </label>
                     <textarea
+                      id="contact-mensaje"
+                      name="mensaje"
                       rows={3}
                       placeholder="Fecha estimada de la asamblea, inquietudes, etc."
                       className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
                     />
                   </div>
                   <button
-                    type="button"
+                    type="submit"
                     className="btn-primary mt-2 w-full justify-center py-3.5 text-[13px]"
                   >
                     Solicitar información →
                   </button>
-                </div>
+                </form>
               </motion.div>
             </div>
           </div>
