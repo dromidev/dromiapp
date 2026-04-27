@@ -167,3 +167,17 @@ export const votesRelations = relations(votes, ({ one }) => ({
     references: [assistants.id],
   }),
 }));
+
+/** Solicitudes de contacto desde la landing pública (sin relación a usuarios). */
+export const landingContactSubmissions = pgTable("landing_contact_submissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  whatsapp: text("whatsapp"),
+  buildingName: text("building_name"),
+  coownersCount: text("coowners_count"),
+  message: text("message"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

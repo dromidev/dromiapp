@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { LandingContactForm } from "@/components/landing/landing-contact-form";
 import {
   motion,
   useInView,
@@ -29,11 +30,7 @@ import {
 /** Logo en `public/iamge/` (ruta del proyecto). */
 const DROMI_LOGO_SRC = "/iamge/dromi%20logo.svg";
 
-/** Destino de los envíos del formulario de contacto (FormSubmit reenvía a este buzón). */
 const CONTACT_LANDING_EMAIL = "jesusprieto@snrg.lat";
-const FORMSUBMIT_LANDING = `https://formsubmit.co/${encodeURIComponent(
-  CONTACT_LANDING_EMAIL
-)}`;
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -144,7 +141,7 @@ const testimonials = [
   {
     name: "Ariadna Noriega",
     role: "Administradora · Conjunto Mirla",
-    text: "La persona que enviaron estuvo presente toda la asamblea, manejó la grabación y las votaciones sin ningún inconveniente. El acta llegó en menos de 48 horas, impecable.",
+    text: "La persona que enviaron estuvo presente toda la asamblea, manejó la grabación y las votaciones sin ningún inconveniente. El acta llegó en pocos días, impecable.",
     rating: 5,
   },
   {
@@ -273,13 +270,6 @@ function InfiniteCarousel() {
 
 export default function HomeLanding() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [contactFormOrigin, setContactFormOrigin] = useState("");
-
-  useEffect(() => {
-    setContactFormOrigin(
-      typeof window !== "undefined" ? window.location.origin : ""
-    );
-  }, []);
 
   const faqs = [
     {
@@ -296,11 +286,11 @@ export default function HomeLanding() {
     },
     {
       q: "¿En cuánto tiempo recibo el acta?",
-      a: "En máximo 48 horas hábiles después de realizada la asamblea. El proceso incluye transcripción con IA, validación de contenido y revisión especializada antes de la entrega.",
+      a: "En un máximo de 3 días hábiles después de realizada la asamblea. El proceso incluye transcripción con IA, validación de contenido y revisión especializada antes de la entrega.",
     },
     {
-      q: "¿El precio varía según el número de unidades?",
-      a: "No. El valor de $1.200.000 COP por asamblea aplica sin importar el número de unidades ni de asistentes del conjunto.",
+      q: "¿El precio varía según el número de copropietarios?",
+      a: "No. El valor de $1.950.000 COP aplica sin importar el número de copropietarios ni de asistentes del conjunto.",
     },
     {
       q: "¿Puedo contratar solo uno de los dos servicios?",
@@ -663,7 +653,7 @@ export default function HomeLanding() {
                     <p className="text-[11px] text-slate-500">
                       Entrega estimada:{" "}
                       <span className="font-medium text-slate-700">
-                        48 horas hábiles
+                        3 días hábiles
                       </span>
                     </p>
                   </div>
@@ -819,7 +809,7 @@ export default function HomeLanding() {
                     "Grabación de audio profesional",
                     "Transcripción y estructuración con IA",
                     "Validación y revisión",
-                    "Acta en PDF en máximo 48 horas hábiles",
+                    "Acta en PDF en máximo 3 días hábiles",
                     "Cumplimiento con Ley 675 de 2001",
                   ].map((f) => (
                     <li
@@ -834,7 +824,7 @@ export default function HomeLanding() {
                 <div className="flex items-center gap-2 border-t border-slate-100 pt-2">
                   <Clock className="h-3.5 w-3.5 text-slate-400" />
                   <span className="text-xs text-slate-500">
-                    Entrega en 48 horas hábiles
+                    Entrega en 3 días hábiles
                   </span>
                 </div>
               </motion.div>
@@ -998,7 +988,7 @@ export default function HomeLanding() {
                   <ProcessStep
                     num="04"
                     title="Validación y entrega del acta"
-                    desc="Un revisor especializado verifica el contenido. En máximo 48 horas hábiles recibes el acta oficial en PDF, lista para firmar."
+                    desc="Un revisor especializado verifica el contenido. En un máximo de 3 días hábiles recibes el acta oficial en PDF, lista para firmar."
                   />
                 </div>
               </motion.div>
@@ -1149,7 +1139,7 @@ export default function HomeLanding() {
             >
               <div className="mb-10 text-center">
                 <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Valor por asamblea
+                  Valor del servicio
                 </p>
                 <div className="mb-2 flex items-start justify-center gap-1.5">
                   <span className="mt-4 text-lg font-semibold text-slate-500">
@@ -1164,11 +1154,11 @@ export default function HomeLanding() {
                       color: "#0f172a",
                     }}
                   >
-                    1.200.000
+                    1.950.000
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
-                  sin importar el número de unidades ni de asistentes
+                  sin importar el número de copropietarios ni de asistentes
                 </p>
               </div>
 
@@ -1183,7 +1173,8 @@ export default function HomeLanding() {
                   "Grabación y gestión del audio completo",
                   "Transcripción con IA de toda la sesión",
                   "Validación y revisión",
-                  "Acta oficial en PDF en máximo 48 horas hábiles",
+                  "Incluye dos fechas, en caso de que la primera fecha no llegue a quórum",
+                  "Acta oficial en PDF en 3 días hábiles",
                   "Sistema de votaciones digitales en tiempo real",
                   "Cálculo automático por votantes",
                   "Exportación de resultados para adjuntar al acta",
@@ -1277,16 +1268,10 @@ export default function HomeLanding() {
               <p className="mx-auto mb-10 max-w-sm text-sm leading-relaxed text-slate-600">
                 Escríbenos y te damos toda la información. Sin compromiso.
               </p>
-              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+              <div className="flex flex-col items-center justify-center sm:flex-row">
                 <a href="#contacto" className="btn-primary px-8 py-3.5 text-[13px]">
                   Solicitar más info{" "}
                   <ArrowRight className="h-4 w-4" />
-                </a>
-                <a
-                  href="https://wa.me/573000000000"
-                  className="btn-ghost px-8 py-3.5 text-[13px]"
-                >
-                  Escribir por WhatsApp
                 </a>
               </div>
             </motion.div>
@@ -1368,108 +1353,7 @@ export default function HomeLanding() {
                 viewport={viewOnce}
                 className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
               >
-                <form
-                  action={FORMSUBMIT_LANDING}
-                  method="POST"
-                  className="space-y-4"
-                >
-                  <input
-                    type="hidden"
-                    name="_subject"
-                    value="Contacto — landing Dromi (sitio web)"
-                  />
-                  {contactFormOrigin ? (
-                    <input
-                      type="hidden"
-                      name="_next"
-                      value={`${contactFormOrigin}/#contacto?enviado=1`}
-                    />
-                  ) : null}
-                  <input type="text" name="_honey" className="hidden" tabIndex={-1} autoComplete="off" />
-                  {(
-                    [
-                      {
-                        name: "nombre" as const,
-                        label: "Nombre completo",
-                        placeholder: "Carlos Rodríguez",
-                        type: "text" as const,
-                        required: true,
-                      },
-                      {
-                        name: "email" as const,
-                        label: "Correo electrónico",
-                        placeholder: "admin@miconjunto.com",
-                        type: "email" as const,
-                        required: true,
-                      },
-                      {
-                        name: "whatsapp" as const,
-                        label: "WhatsApp",
-                        placeholder: "+57 300 000 0000",
-                        type: "tel" as const,
-                        required: false,
-                      },
-                      {
-                        name: "conjunto" as const,
-                        label: "Nombre del conjunto",
-                        placeholder: "Conjunto Mirla",
-                        type: "text" as const,
-                        required: false,
-                      },
-                      {
-                        name: "unidades" as const,
-                        label: "N.º de unidades aprox.",
-                        placeholder: "48 unidades",
-                        type: "text" as const,
-                        required: false,
-                      },
-                    ] as const
-                  ).map(({ name, label, placeholder, type, required }) => (
-                    <div key={name}>
-                      <label
-                        htmlFor={`contact-${name}`}
-                        className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500"
-                      >
-                        {label}
-                        {required ? (
-                          <span className="text-rose-500" aria-hidden>
-                            {" "}
-                            *
-                          </span>
-                        ) : null}
-                      </label>
-                      <input
-                        id={`contact-${name}`}
-                        name={name}
-                        type={type}
-                        required={required}
-                        placeholder={placeholder}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                      />
-                    </div>
-                  ))}
-                  <div>
-                    <label
-                      htmlFor="contact-mensaje"
-                      className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500"
-                    >
-                      ¿En qué podemos ayudarte?
-                    </label>
-                    <textarea
-                      id="contact-mensaje"
-                      name="mensaje"
-                      rows={3}
-                      placeholder="Fecha estimada de la asamblea, inquietudes, etc."
-                      className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="btn-primary mt-2 w-full justify-center py-3.5 text-[13px]"
-                  >
-                    Solicitar información →
-                  </button>
-                </form>
+                <LandingContactForm />
               </motion.div>
             </div>
           </div>
