@@ -177,6 +177,10 @@ export const landingContactSubmissions = pgTable("landing_contact_submissions", 
   buildingName: text("building_name"),
   coownersCount: text("coowners_count"),
   message: text("message"),
+  /** Id del mensaje en Resend (éxito); útil en dashboard.resend.com → Emails. */
+  resendEmailId: text("resend_email_id"),
+  /** Si el guardado fue ok pero el correo falló, queda el motivo (p. ej. validación de dominio). */
+  notifyError: text("notify_error"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

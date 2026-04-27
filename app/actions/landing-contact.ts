@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { landingContactSubmissions } from "@/db/schema";
 import { sendLandingContactNotification } from "@/lib/send-landing-contact-email";
@@ -100,11 +101,35 @@ export async function submitLandingContactAction(
 
     try {
       const mail = await sendLandingContactNotification(payload);
-      if (!mail.sent) {
+      if (mail.ok) {
+        await db
+          .update(landingContactSubmissions)
+          .set({
+            resendEmailId: mail.resendEmailId,
+            notifyError: null,
+          })
+          .where(eq(landingContactSubmissions.id, row.id));
+      } else {
+        await db
+          .update(landingContactSubmissions)
+          .set({ notifyError: mail.reason, resendEmailId: null })
+          .where(eq(landingContactSubmissions.id, row.id));
         console.warn("[landing-contact] Email no enviado:", mail.reason);
       }
     } catch (e) {
       console.error("[landing-contact] Error notificando por correo:", e);
+      try {
+        await db
+          .update(landingContactSubmissions)
+          .set({
+            notifyError:
+              e instanceof Error ? e.message : "Error inesperado al enviar correo",
+            resendEmailId: null,
+          })
+          .where(eq(landingContactSubmissions.id, row.id));
+      } catch {
+        /* no bloquear respuesta al usuario */
+      }
     }
 
     return { ok: true };
